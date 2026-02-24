@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      match_progress: {
+        Row: {
+          distance_meters: number
+          match_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          distance_meters?: number
+          match_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          distance_meters?: number
+          match_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_progress_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       match_results: {
         Row: {
           finished_at: string
