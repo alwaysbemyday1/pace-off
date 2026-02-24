@@ -6,7 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { LocationObject } from 'expo-location';
 
 import { Card } from '@/components/common/Card';
@@ -35,6 +35,7 @@ const formatTime = (seconds: number) => {
 
 export default function RunningScreen() {
   const { id } = useLocalSearchParams<Params>();
+  const router = useRouter();
   const { location, error: locationError } = useLocationTracking();
   const [match, setMatch] = useState<MatchRow | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -48,6 +49,7 @@ export default function RunningScreen() {
   const lastSentAtRef = useRef(0);
   const lastSentDistanceRef = useRef(0);
   const startTimeRef = useRef<number | null>(null);
+  const hasNavigatedRef = useRef(false);
 
   const opponentId = useMemo(() => {
     if (!match || !userId) return null;
@@ -239,6 +241,15 @@ export default function RunningScreen() {
       supabase.removeChannel(channel);
     };
   }, [id, userId]);
+
+  useEffect(() => {
+    if (!id || timeLeft === null) return;
+    if (timeLeft > 0) return;
+    if (hasNavigatedRef.current) return;
+
+    hasNavigatedRef.current = true;
+    router.replace(`/match/result/${id}`);
+  }, [id, timeLeft, router]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
