@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   SafeAreaView,
@@ -43,6 +43,7 @@ export default function MatchResultScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const submittedRef = useRef(false);
+  const statusUpdatedRef = useRef(false);
 
   const totalSeconds = useMemo(() => {
     return match ? match.target_time_minutes * 60 : 0;
@@ -54,18 +55,39 @@ export default function MatchResultScreen() {
     return match.creator_id;
   }, [match, userId]);
 
+  const myResultReady = !!myResult;
   const resultsReady = useMemo(() => {
+    if (!myResultReady) return false;
     if (!opponentId) return true;
     return !!rivalResult;
-  }, [opponentId, rivalResult]);
+  }, [myResultReady, opponentId, rivalResult]);
 
   const myDistance = myResult?.total_distance_meters ?? 0;
   const rivalDistance = rivalResult?.total_distance_meters ?? 0;
+  const distanceGap = useMemo(() => {
+    if (!resultsReady) return null;
+    return Math.abs(myDistance - rivalDistance);
+  }, [resultsReady, myDistance, rivalDistance]);
 
   const outcome = useMemo(() => {
     if (!resultsReady) return null;
     return myDistance >= rivalDistance ? 'VICTORY' : 'DEFEAT';
   }, [resultsReady, myDistance, rivalDistance]);
+
+  const fetchOpponentResult = useCallback(async () => {
+    if (!id || !opponentId) return;
+
+    const { data } = await supabase
+      .from('match_results')
+      .select('*')
+      .eq('match_id', id)
+      .eq('user_id', opponentId)
+      .maybeSingle();
+
+    if (data) {
+      setRivalResult(data);
+    }
+  }, [id, opponentId]);
 
   useEffect(() => {
     if (!id) return;
@@ -177,23 +199,8 @@ export default function MatchResultScreen() {
   }, [id, userId]);
 
   useEffect(() => {
-    if (!id || !opponentId) return;
-
-    const fetchOpponent = async () => {
-      const { data } = await supabase
-        .from('match_results')
-        .select('*')
-        .eq('match_id', id)
-        .eq('user_id', opponentId)
-        .maybeSingle();
-
-      if (data) {
-        setRivalResult(data);
-      }
-    };
-
-    fetchOpponent();
-  }, [id, opponentId]);
+    fetchOpponentResult();
+  }, [fetchOpponentResult]);
 
   useEffect(() => {
     if (!id) return;
@@ -219,6 +226,29 @@ export default function MatchResultScreen() {
       supabase.removeChannel(channel);
     };
   }, [id, userId]);
+
+  useEffect(() => {
+    if (resultsReady || !opponentId) return;
+
+    const interval = setInterval(() => {
+      fetchOpponentResult();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [resultsReady, opponentId, fetchOpponentResult]);
+
+  useEffect(() => {
+    if (!id || !resultsReady) return;
+    if (statusUpdatedRef.current) return;
+
+    statusUpdatedRef.current = true;
+
+    supabase
+      .from('matches')
+      .update({ status: 'completed', completed_at: new Date().toISOString() })
+      .eq('id', id)
+      .then(() => undefined);
+  }, [id, resultsReady]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -271,6 +301,11 @@ export default function MatchResultScreen() {
             <Text style={styles.metaText}>
               Avg Pace: {formatPace(rivalDistance, totalSeconds)}
             </Text>
+            {distanceGap !== null ? (
+              <Text style={styles.gapText}>
+                Gap: {distanceGap.toFixed(0)} m
+              </Text>
+            ) : null}
           </Card>
         ) : null}
 
@@ -343,6 +378,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 6,
+  },
+  gapText: {
+    color: '#38BDF8',
+    fontSize: 13,
+    fontWeight: '700',
   },
   actions: {
     marginTop: 'auto',

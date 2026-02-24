@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   SafeAreaView,
@@ -36,7 +36,7 @@ const formatTime = (seconds: number) => {
 export default function RunningScreen() {
   const { id } = useLocalSearchParams<Params>();
   const router = useRouter();
-  const { location, error: locationError } = useLocationTracking();
+  const { location, error: locationError, stopTracking } = useLocationTracking();
   const [match, setMatch] = useState<MatchRow | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [myDistance, setMyDistance] = useState(0);
@@ -49,7 +49,9 @@ export default function RunningScreen() {
   const lastSentAtRef = useRef(0);
   const lastSentDistanceRef = useRef(0);
   const startTimeRef = useRef<number | null>(null);
+  const startedAtRef = useRef<string | null>(null);
   const hasNavigatedRef = useRef(false);
+  const ensuredStartRef = useRef(false);
 
   const opponentId = useMemo(() => {
     if (!match || !userId) return null;
@@ -130,7 +132,29 @@ export default function RunningScreen() {
   }, [id]);
 
   useEffect(() => {
+    if (!id || !match || match.started_at || !userId) return;
+    if (ensuredStartRef.current) return;
+
+    const startedAt = new Date().toISOString();
+    ensuredStartRef.current = true;
+    startedAtRef.current = startedAt;
+    startTimeRef.current = Date.parse(startedAt);
+
+    supabase
+      .from('matches')
+      .update({ started_at: startedAt, status: 'in_progress', completed_at: null })
+      .eq('id', id)
+      .then(() => undefined);
+  }, [id, match, userId]);
+
+  useEffect(() => {
     if (!match) return;
+
+    const nextStartedAt = match.started_at ?? startedAtRef.current;
+    if (nextStartedAt && startedAtRef.current !== nextStartedAt) {
+      startedAtRef.current = nextStartedAt;
+      startTimeRef.current = Date.parse(nextStartedAt);
+    }
 
     if (!startTimeRef.current) {
       startTimeRef.current = Date.now();
@@ -150,7 +174,7 @@ export default function RunningScreen() {
 
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
-  }, [match?.id, match?.target_time_minutes]);
+  }, [match?.id, match?.target_time_minutes, match?.started_at]);
 
   useEffect(() => {
     if (!location) return;
@@ -242,14 +266,37 @@ export default function RunningScreen() {
     };
   }, [id, userId]);
 
+  const finalizeAndNavigate = useCallback(async () => {
+    if (hasNavigatedRef.current) return;
+    hasNavigatedRef.current = true;
+
+    stopTracking();
+
+    if (id && userId) {
+      await supabase
+        .from('match_progress')
+        .upsert(
+          {
+            match_id: id,
+            user_id: userId,
+            distance_meters: myDistance,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'match_id,user_id' }
+        );
+      lastSentAtRef.current = Date.now();
+      lastSentDistanceRef.current = myDistance;
+    }
+
+    router.replace(`/match/result/${id}`);
+  }, [id, userId, myDistance, router, stopTracking]);
+
   useEffect(() => {
     if (!id || timeLeft === null) return;
     if (timeLeft > 0) return;
-    if (hasNavigatedRef.current) return;
 
-    hasNavigatedRef.current = true;
-    router.replace(`/match/result/${id}`);
-  }, [id, timeLeft, router]);
+    finalizeAndNavigate();
+  }, [id, timeLeft, finalizeAndNavigate]);
 
   return (
     <SafeAreaView style={styles.safeArea}>

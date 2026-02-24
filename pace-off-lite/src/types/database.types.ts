@@ -91,26 +91,32 @@ export type Database = {
       }
       matches: {
         Row: {
+          completed_at: string | null
           created_at: string
           creator_id: string
           id: string
           opponent_id: string | null
+          started_at: string | null
           status: string
           target_time_minutes: number
         }
         Insert: {
+          completed_at?: string | null
           created_at?: string
           creator_id: string
           id?: string
           opponent_id?: string | null
+          started_at?: string | null
           status?: string
           target_time_minutes: number
         }
         Update: {
+          completed_at?: string | null
           created_at?: string
           creator_id?: string
           id?: string
           opponent_id?: string | null
+          started_at?: string | null
           status?: string
           target_time_minutes?: number
         }

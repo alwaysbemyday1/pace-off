@@ -115,7 +115,12 @@ export default function HomeScreen() {
 
     const { data, error: joinError } = await supabase
       .from('matches')
-      .update({ opponent_id: userId, status: 'in_progress' })
+      .update({
+        opponent_id: userId,
+        status: 'in_progress',
+        started_at: new Date().toISOString(),
+        completed_at: null,
+      })
       .eq('id', matchId)
       .is('opponent_id', null)
       .eq('status', 'waiting')

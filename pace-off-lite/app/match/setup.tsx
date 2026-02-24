@@ -47,6 +47,8 @@ export default function MatchSetupScreen() {
     }
 
     const status = opponentMode === 'real' ? 'waiting' : 'in_progress';
+    const startedAt =
+      opponentMode === 'real' ? null : new Date().toISOString();
 
     const { data, error: insertError } = await supabase
       .from('matches')
@@ -55,6 +57,8 @@ export default function MatchSetupScreen() {
         target_time_minutes: selectedTime,
         status,
         opponent_id: null,
+        started_at: startedAt,
+        completed_at: null,
       })
       .select()
       .single();
