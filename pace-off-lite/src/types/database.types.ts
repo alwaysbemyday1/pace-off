@@ -98,7 +98,7 @@ export type Database = {
           opponent_id: string | null
           started_at: string | null
           status: string
-          target_time_minutes: number
+          target_distance_meters: number
         }
         Insert: {
           completed_at?: string | null
@@ -108,7 +108,7 @@ export type Database = {
           opponent_id?: string | null
           started_at?: string | null
           status?: string
-          target_time_minutes: number
+          target_distance_meters?: number
         }
         Update: {
           completed_at?: string | null
@@ -118,7 +118,7 @@ export type Database = {
           opponent_id?: string | null
           started_at?: string | null
           status?: string
-          target_time_minutes?: number
+          target_distance_meters?: number
         }
         Relationships: [
           {
@@ -293,3 +293,5 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
+

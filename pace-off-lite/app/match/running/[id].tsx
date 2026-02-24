@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+ï»¿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { LocationObject } from 'expo-location';
 
@@ -14,6 +14,7 @@ import { ProgressBar } from '@/components/common/ProgressBar';
 import { haversineDistanceMeters } from '@/utils/distance';
 import { useLocationTracking } from '@/hooks/useLocationTracking';
 import type { Tables } from '@/types/database.types';
+import { COLORS } from '@/styles/theme';
 import { supabase } from '@/utils/supabase';
 
 type MatchRow = Tables<'matches'>;
@@ -41,7 +42,7 @@ export default function RunningScreen() {
   const [userId, setUserId] = useState<string | null>(null);
   const [myDistance, setMyDistance] = useState(0);
   const [rivalDistance, setRivalDistance] = useState(0);
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,18 +60,20 @@ export default function RunningScreen() {
     return match.creator_id;
   }, [match, userId]);
 
-  const maxDistance = useMemo(() => {
-    return Math.max(1, myDistance, rivalDistance);
-  }, [myDistance, rivalDistance]);
+  const targetDistance = match?.target_distance_meters ?? 3000;
+
+  const distanceLeft = useMemo(() => {
+    return Math.max(0, targetDistance - myDistance);
+  }, [targetDistance, myDistance]);
 
   const leadText = useMemo(() => {
     if (myDistance === 0 && rivalDistance === 0) {
-      return '´ë°áÀ» ½ÃÀÛÇÏ¼¼¿ä!';
+      return 'ëŒ€ê²°ì„ ì‹œìž‘í•˜ì„¸ìš”!';
     }
     if (myDistance >= rivalDistance) {
-      return '³»°¡ ¼±µÎÀÔ´Ï´Ù!';
+      return 'ë‚´ê°€ ì„ ë‘ìž…ë‹ˆë‹¤!';
     }
-    return '»ó´ë°¡ ¾Õ¼­°í ÀÖ½À´Ï´Ù!';
+    return 'ìƒëŒ€ê°€ ì•žì„œê³  ìžˆìŠµë‹ˆë‹¤!';
   }, [myDistance, rivalDistance]);
 
   useEffect(() => {
@@ -160,21 +163,18 @@ export default function RunningScreen() {
       startTimeRef.current = Date.now();
     }
 
-    const totalSeconds = match.target_time_minutes * 60;
-
-    const updateTime = () => {
+    const updateElapsed = () => {
       const elapsed = Math.floor(
         (Date.now() - (startTimeRef.current ?? Date.now())) / 1000
       );
-      const next = Math.max(0, totalSeconds - elapsed);
-      setTimeLeft(next);
+      setElapsedSeconds(elapsed);
     };
 
-    updateTime();
+    updateElapsed();
 
-    const interval = setInterval(updateTime, 1000);
+    const interval = setInterval(updateElapsed, 1000);
     return () => clearInterval(interval);
-  }, [match?.id, match?.target_time_minutes, match?.started_at]);
+  }, [match?.id, match?.started_at]);
 
   useEffect(() => {
     if (!location) return;
@@ -292,37 +292,44 @@ export default function RunningScreen() {
   }, [id, userId, myDistance, router, stopTracking]);
 
   useEffect(() => {
-    if (!id || timeLeft === null) return;
-    if (timeLeft > 0) return;
+    if (!id) return;
+    if (myDistance < targetDistance) return;
 
     finalizeAndNavigate();
-  }, [id, timeLeft, finalizeAndNavigate]);
+  }, [id, myDistance, targetDistance, finalizeAndNavigate]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.container}>
         <Text style={styles.title}>MATCH RUNNING</Text>
 
         {loading ? (
           <View style={styles.loadingRow}>
-            <ActivityIndicator color="#F59E0B" />
+            <ActivityIndicator color={COLORS.accent} />
             <Text style={styles.loadingText}>Loading match...</Text>
           </View>
         ) : null}
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        <Card title="Time Left" style={styles.card}>
+        <Card title="Elapsed Time" style={styles.card}>
           <Text style={styles.timerText}>
-            {timeLeft === null ? '--:--' : formatTime(timeLeft)}
+            {elapsedSeconds === null ? '--:--' : formatTime(elapsedSeconds)}
           </Text>
         </Card>
 
-        <Card title="Distance" style={styles.card}>
+        <Card title="Distance Left" style={styles.card}>
+          <Text style={styles.distanceText}>{Math.round(distanceLeft)} m</Text>
+          <Text style={styles.distanceSubText}>
+            Target {Math.round(targetDistance)} m
+          </Text>
+        </Card>
+
+        <Card title="Progress" style={styles.card}>
           <ProgressBar
             youValue={myDistance}
             rivalValue={rivalDistance}
-            maxValue={maxDistance}
+            maxValue={targetDistance}
             youLabel="YOU"
             rivalLabel="RIVAL"
           />
@@ -341,7 +348,7 @@ export default function RunningScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B1220',
+    backgroundColor: COLORS.background,
   },
   container: {
     flex: 1,
@@ -353,22 +360,38 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '900',
     letterSpacing: 1,
-    color: '#F8FAFC',
+    color: COLORS.text,
+    textTransform: 'uppercase',
   },
   card: {
-    marginTop: 8,
+    marginTop: 4,
   },
   timerText: {
     fontSize: 32,
     fontWeight: '900',
-    color: '#F59E0B',
+    color: COLORS.accent,
     textAlign: 'center',
     letterSpacing: 2,
+  },
+  distanceText: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: COLORS.accentBlue,
+    textAlign: 'center',
+    letterSpacing: 1,
+  },
+  distanceSubText: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.muted,
+    textAlign: 'center',
+    textTransform: 'uppercase',
   },
   leadText: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#38BDF8',
+    color: COLORS.accentBlue,
     textAlign: 'center',
     textTransform: 'uppercase',
   },
@@ -378,11 +401,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   loadingText: {
-    color: '#94A3B8',
+    color: COLORS.muted,
     fontSize: 12,
   },
   errorText: {
-    color: '#F97316',
+    color: COLORS.accentOrange,
     fontSize: 12,
   },
 });
+
+

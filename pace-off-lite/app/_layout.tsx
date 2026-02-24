@@ -1,14 +1,15 @@
 ﻿import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import type { Session } from '@supabase/supabase-js';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useMemo, useState } from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 
-import { useColorScheme } from '@/components/useColorScheme';
-import { supabase } from '@/utils/supabase';
+import { COLORS } from '@/styles/theme';
+import { ensureUserProfile, supabase } from '@/utils/supabase';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -17,7 +18,7 @@ export {
 
 export const unstable_settings = {
   // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: '(tabs)',
+  initialRouteName: 'index',
 };
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -29,7 +30,6 @@ export default function RootLayout() {
     ...FontAwesome.font,
   });
 
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
     if (error) throw error;
   }, [error]);
@@ -48,7 +48,6 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
   const router = useRouter();
   const segments = useSegments();
   const [session, setSession] = useState<Session | null>(null);
@@ -90,21 +89,33 @@ function RootLayoutNav() {
     }
 
     if (session && isOnLogin) {
-      router.replace('/(tabs)');
+      router.replace('/');
     }
   }, [authReady, session, isOnLogin, router]);
+
+  useEffect(() => {
+    if (!session?.user) return;
+
+    ensureUserProfile(session.user).then(() => undefined);
+  }, [session?.user]);
 
   if (!authReady) {
     return null;
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+    <SafeAreaProvider>
+      <StatusBar style="light" backgroundColor={COLORS.background} />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="login" />
+        <Stack.Screen name="match" />
+        <Stack.Screen name="matches" />
+        <Stack.Screen name="profile" />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       </Stack>
-    </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
+
+

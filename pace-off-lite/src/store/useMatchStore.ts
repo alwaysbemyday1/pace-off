@@ -4,10 +4,10 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 type MatchState = {
   matchId: string | null;
-  targetTimeMinutes: number | null;
+  targetDistanceMeters: number | null;
   totalDistanceMeters: number;
   setMatchId: (matchId: string | null) => void;
-  setTargetTimeMinutes: (minutes: number | null) => void;
+  setTargetDistanceMeters: (meters: number | null) => void;
   setTotalDistanceMeters: (meters: number) => void;
   addDistanceMeters: (meters: number) => void;
   resetMatch: () => void;
@@ -15,7 +15,7 @@ type MatchState = {
 
 const initialState = {
   matchId: null,
-  targetTimeMinutes: null,
+  targetDistanceMeters: null,
   totalDistanceMeters: 0,
 };
 
@@ -24,7 +24,7 @@ export const useMatchStore = create<MatchState>()(
     (set) => ({
       ...initialState,
       setMatchId: (matchId) => set({ matchId }),
-      setTargetTimeMinutes: (targetTimeMinutes) => set({ targetTimeMinutes }),
+      setTargetDistanceMeters: (targetDistanceMeters) => set({ targetDistanceMeters }),
       setTotalDistanceMeters: (totalDistanceMeters) => set({ totalDistanceMeters }),
       addDistanceMeters: (meters) =>
         set((state) => ({ totalDistanceMeters: state.totalDistanceMeters + meters })),
@@ -35,9 +35,11 @@ export const useMatchStore = create<MatchState>()(
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         matchId: state.matchId,
-        targetTimeMinutes: state.targetTimeMinutes,
+        targetDistanceMeters: state.targetDistanceMeters,
         totalDistanceMeters: state.totalDistanceMeters,
       }),
     }
   )
 );
+
+

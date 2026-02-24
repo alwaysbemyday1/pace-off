@@ -2,13 +2,7 @@
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 import { StyleSheet, Text, View } from 'react-native';
 
-const COLORS = {
-  base: '#0F172A',
-  surface: '#1E3A8A',
-  surfaceInner: '#2748A6',
-  text: '#F8FAFC',
-  muted: '#CBD5F5',
-};
+import { COLORS, SIZES } from '@/styles/theme';
 
 type CardProps = PropsWithChildren<{
   title?: string;
@@ -34,12 +28,12 @@ export const Card = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: COLORS.surface,
-    borderColor: COLORS.base,
-    borderWidth: 3,
-    borderRadius: 18,
+    backgroundColor: COLORS.panel,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderHeavy,
+    borderRadius: SIZES.radiusLarge,
     padding: 16,
-    shadowColor: COLORS.base,
+    shadowColor: COLORS.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 0,
@@ -52,15 +46,17 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     textTransform: 'uppercase',
     marginBottom: 10,
-    textShadowColor: COLORS.base,
+    textShadowColor: COLORS.border,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 0,
   },
   content: {
-    backgroundColor: COLORS.surfaceInner,
-    borderRadius: 12,
+    backgroundColor: COLORS.panelInner,
+    borderRadius: SIZES.radiusMedium,
     padding: 12,
-    borderColor: COLORS.base,
-    borderWidth: 2,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderLight,
   },
 });
+
+

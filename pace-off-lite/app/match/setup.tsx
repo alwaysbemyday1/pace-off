@@ -1,29 +1,38 @@
 ﻿import { useMemo, useState } from 'react';
 import {
-  SafeAreaView,
+  ActivityIndicator,
+  Pressable,
   StyleSheet,
   Text,
   View,
-  Pressable,
-  ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { PrimaryButton } from '@/components/common/PrimaryButton';
+import { COLORS, SIZES } from '@/styles/theme';
 import { supabase } from '@/utils/supabase';
 
-const TIME_OPTIONS = [10, 15, 30] as const;
+const DISTANCE_OPTIONS = [1000, 3000, 5000] as const;
 
 type OpponentMode = 'ghost' | 'real';
 
+const formatDistanceLabel = (meters: number) => {
+  const km = meters / 1000;
+  return `${km % 1 === 0 ? km.toFixed(0) : km.toFixed(1)} KM`;
+};
+
 export default function MatchSetupScreen() {
   const router = useRouter();
-  const [selectedTime, setSelectedTime] = useState<number>(15);
+  const [selectedDistance, setSelectedDistance] = useState<number>(3000);
   const [opponentMode, setOpponentMode] = useState<OpponentMode>('ghost');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const timeLabel = useMemo(() => `${selectedTime} min`, [selectedTime]);
+  const distanceLabel = useMemo(
+    () => formatDistanceLabel(selectedDistance),
+    [selectedDistance]
+  );
 
   const handleCreate = async () => {
     setError(null);
@@ -47,14 +56,13 @@ export default function MatchSetupScreen() {
     }
 
     const status = opponentMode === 'real' ? 'waiting' : 'in_progress';
-    const startedAt =
-      opponentMode === 'real' ? null : new Date().toISOString();
+    const startedAt = opponentMode === 'real' ? null : new Date().toISOString();
 
     const { data, error: insertError } = await supabase
       .from('matches')
       .insert({
         creator_id: userId,
-        target_time_minutes: selectedTime,
+        target_distance_meters: selectedDistance,
         status,
         opponent_id: null,
         started_at: startedAt,
@@ -79,29 +87,32 @@ export default function MatchSetupScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.container}>
-        <Text style={styles.title}>MATCH SETUP</Text>
+        <View style={styles.header}>
+          <Text style={styles.title}>MATCH SETUP</Text>
+          <Text style={styles.subTitle}>SPEED MATCH</Text>
+        </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Match Time</Text>
+          <Text style={styles.sectionTitle}>Distance</Text>
           <View style={styles.optionRow}>
-            {TIME_OPTIONS.map((option) => {
-              const active = option === selectedTime;
+            {DISTANCE_OPTIONS.map((option) => {
+              const active = option === selectedDistance;
               return (
                 <Pressable
                   key={option}
-                  onPress={() => setSelectedTime(option)}
+                  onPress={() => setSelectedDistance(option)}
                   style={[styles.optionButton, active && styles.optionActive]}
                 >
                   <Text style={[styles.optionText, active && styles.optionTextActive]}>
-                    {option} min
+                    {formatDistanceLabel(option)}
                   </Text>
                 </Pressable>
               );
             })}
           </View>
-          <Text style={styles.helperText}>Selected: {timeLabel}</Text>
+          <Text style={styles.helperText}>Selected: {distanceLabel}</Text>
         </View>
 
         <View style={styles.section}>
@@ -157,7 +168,7 @@ export default function MatchSetupScreen() {
 
         {loading ? (
           <View style={styles.loadingRow}>
-            <ActivityIndicator color="#F59E0B" />
+            <ActivityIndicator color={COLORS.accent} />
             <Text style={styles.loadingText}>Creating match...</Text>
           </View>
         ) : null}
@@ -169,7 +180,7 @@ export default function MatchSetupScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B1220',
+    backgroundColor: COLORS.background,
   },
   container: {
     flex: 1,
@@ -177,24 +188,35 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     gap: 20,
   },
+  header: {
+    gap: 6,
+  },
   title: {
     fontSize: 24,
     fontWeight: '900',
+    letterSpacing: 1.5,
+    color: COLORS.text,
+    textTransform: 'uppercase',
+  },
+  subTitle: {
+    fontSize: 16,
+    fontWeight: '900',
     letterSpacing: 1,
-    color: '#F8FAFC',
+    color: COLORS.accent,
+    textTransform: 'uppercase',
   },
   section: {
-    backgroundColor: '#1E293B',
-    borderColor: '#0F172A',
-    borderWidth: 3,
-    borderRadius: 18,
+    backgroundColor: COLORS.panel,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderHeavy,
+    borderRadius: SIZES.radiusLarge,
     padding: 16,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 0.8,
-    color: '#F8FAFC',
+    color: COLORS.text,
     textTransform: 'uppercase',
     marginBottom: 12,
   },
@@ -208,31 +230,31 @@ const styles = StyleSheet.create({
     minWidth: 96,
     paddingVertical: 10,
     paddingHorizontal: 14,
-    backgroundColor: '#0B1220',
-    borderColor: '#0F172A',
-    borderWidth: 2,
-    borderRadius: 12,
+    backgroundColor: COLORS.background,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderLight,
+    borderRadius: SIZES.radiusSmall,
     alignItems: 'center',
   },
   optionActive: {
-    backgroundColor: '#F59E0B',
-    borderColor: '#0F172A',
+    backgroundColor: COLORS.accent,
+    borderColor: COLORS.border,
   },
   optionText: {
-    color: '#E2E8F0',
+    color: COLORS.text,
     fontSize: 12,
     fontWeight: '700',
   },
   optionTextActive: {
-    color: '#0B1220',
+    color: COLORS.border,
   },
   helperText: {
-    color: '#94A3B8',
+    color: COLORS.muted,
     fontSize: 12,
     marginTop: 10,
   },
   errorText: {
-    color: '#F97316',
+    color: COLORS.accentOrange,
     fontSize: 12,
   },
   loadingRow: {
@@ -241,7 +263,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   loadingText: {
-    color: '#94A3B8',
+    color: COLORS.muted,
     fontSize: 12,
   },
 });
+
+
