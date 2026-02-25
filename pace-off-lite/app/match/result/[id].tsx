@@ -1,4 +1,4 @@
-Ôªøimport { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -11,7 +11,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Card } from '@/components/common/Card';
 import { PrimaryButton } from '@/components/common/PrimaryButton';
 import type { Tables } from '@/types/database.types';
-import { COLORS } from '@/styles/theme';
+import { COLORS, SIZES } from '@/styles/theme';
 import { supabase } from '@/utils/supabase';
 
 type MatchRow = Tables<'matches'>;
@@ -42,6 +42,8 @@ const formatDuration = (seconds: number | null) => {
   const secs = seconds % 60;
   return `${minutes}:${secs.toString().padStart(2, '0')}`;
 };
+
+const formatKm = (meters: number) => `${(meters / 1000).toFixed(2)} km`;
 
 export default function MatchResultScreen() {
   const { id } = useLocalSearchParams<Params>();
@@ -280,10 +282,14 @@ export default function MatchResultScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerText}>PACE OFF</Text>
+        </View>
+
         {loading ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator color={COLORS.accent} />
-            <Text style={styles.loadingText}>Í≤∞Í≥ºÎ•º Î∂àÎü¨Ïò§Îäî Ï§ë...</Text>
+            <Text style={styles.loadingText}>∞·∞˙∏¶ ∫“∑Øø¿¥¬ ¡ﬂ...</Text>
           </View>
         ) : null}
 
@@ -306,16 +312,14 @@ export default function MatchResultScreen() {
           <View style={styles.waitingBox}>
             <ActivityIndicator color={COLORS.accentBlue} />
             <Text style={styles.waitingText}>
-              ÏÉÅÎåÄÎ∞©Ïùò ÏµúÏ¢Ö Í∏∞Î°ùÏùÑ ÏßëÍ≥Ñ Ï§ëÏûÖÎãàÎã§...
+              ªÛ¥ÎπÊ¿« √÷¡æ ±‚∑œ¿ª ¡˝∞Ë ¡ﬂ¿‘¥œ¥Ÿ...
             </Text>
           </View>
         ) : null}
 
         <Card title="YOU" style={styles.card}>
-          <Text style={styles.metaText}>Distance: {myDistance.toFixed(0)} m</Text>
-          <Text style={styles.metaText}>
-            Time: {formatDuration(mySeconds)}
-          </Text>
+          <Text style={styles.metaText}>Distance: {formatKm(myDistance)}</Text>
+          <Text style={styles.metaText}>Time: {formatDuration(mySeconds)}</Text>
           <Text style={styles.metaText}>
             Avg Pace: {formatPace(myDistance, mySeconds)}
           </Text>
@@ -324,7 +328,7 @@ export default function MatchResultScreen() {
         {resultsReady && opponentId ? (
           <Card title="RIVAL" style={styles.card}>
             <Text style={styles.metaText}>
-              Distance: {rivalDistance.toFixed(0)} m
+              Distance: {formatKm(rivalDistance)}
             </Text>
             <Text style={styles.metaText}>
               Time: {formatDuration(rivalSeconds)}
@@ -334,7 +338,7 @@ export default function MatchResultScreen() {
             </Text>
             {distanceGap !== null ? (
               <Text style={styles.gapText}>
-                Gap: {distanceGap.toFixed(0)} m
+                Gap: {formatKm(distanceGap)}
               </Text>
             ) : null}
           </Card>
@@ -361,19 +365,35 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    gap: 16,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    gap: 14,
+  },
+  header: {
+    backgroundColor: COLORS.panel,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderHeavy,
+    borderRadius: SIZES.radiusMedium,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  headerText: {
+    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    fontFamily: 'SpaceMono',
   },
   outcome: {
-    fontSize: 38,
+    fontSize: 34,
     fontWeight: '900',
     letterSpacing: 2,
     textAlign: 'center',
     textTransform: 'uppercase',
   },
   outcomePending: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '800',
     letterSpacing: 1,
     textAlign: 'center',
@@ -399,7 +419,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   card: {
-    marginTop: 4,
+    marginTop: 2,
   },
   metaText: {
     color: COLORS.text,
@@ -437,5 +457,3 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
-
-

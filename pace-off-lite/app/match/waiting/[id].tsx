@@ -1,11 +1,11 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Card } from '@/components/common/Card';
 import type { Tables } from '@/types/database.types';
-import { COLORS } from '@/styles/theme';
+import { COLORS, SIZES } from '@/styles/theme';
 import { supabase } from '@/utils/supabase';
 
 type MatchRow = Tables<'matches'>;
@@ -15,8 +15,7 @@ type Params = { id?: string };
 const formatDistance = (meters: number) => {
   if (!Number.isFinite(meters)) return '-- km';
   const km = meters / 1000;
-  if (km >= 1) return `${km.toFixed(km % 1 === 0 ? 0 : 1)} km`;
-  return `${Math.round(meters)} m`;
+  return `${km.toFixed(2)} km`;
 };
 
 export default function WaitingRoomScreen() {
@@ -85,7 +84,10 @@ export default function WaitingRoomScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.container}>
-        <Text style={styles.title}>WAITING ROOM</Text>
+        <View style={styles.header}>
+          <Text style={styles.title}>WAITING ROOM</Text>
+          <Text style={styles.subTitle}>MATCH STATUS</Text>
+        </View>
 
         {loading ? (
           <View style={styles.loadingRow}>
@@ -118,15 +120,31 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingTop: 16,
     gap: 16,
   },
+  header: {
+    backgroundColor: COLORS.panel,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderHeavy,
+    borderRadius: SIZES.radiusMedium,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
   title: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '900',
-    letterSpacing: 1,
+    letterSpacing: 2,
     color: COLORS.text,
+    textTransform: 'uppercase',
+    fontFamily: 'SpaceMono',
+  },
+  subTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.highlight,
+    marginTop: 2,
     textTransform: 'uppercase',
   },
   card: {
@@ -152,5 +170,3 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
-
-

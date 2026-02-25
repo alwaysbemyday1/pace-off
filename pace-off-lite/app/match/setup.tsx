@@ -1,9 +1,10 @@
-ï»¿import { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,26 +14,41 @@ import { PrimaryButton } from '@/components/common/PrimaryButton';
 import { COLORS, SIZES } from '@/styles/theme';
 import { supabase } from '@/utils/supabase';
 
-const DISTANCE_OPTIONS = [1000, 3000, 5000] as const;
+const QUICK_DISTANCE_KM = [1, 3, 5] as const;
+const MIN_KM = 0.1;
+const MAX_KM = 50;
+const STEP_KM = 0.01;
 
 type OpponentMode = 'ghost' | 'real';
 
-const formatDistanceLabel = (meters: number) => {
-  const km = meters / 1000;
-  return `${km % 1 === 0 ? km.toFixed(0) : km.toFixed(1)} KM`;
+const normalizeKm = (value: number) => {
+  const clamped = Math.min(MAX_KM, Math.max(MIN_KM, value));
+  return Math.round(clamped * 100) / 100;
 };
+
+const formatKmLabel = (value: number) => `${value.toFixed(2)} KM`;
 
 export default function MatchSetupScreen() {
   const router = useRouter();
-  const [selectedDistance, setSelectedDistance] = useState<number>(3000);
+  const [distanceKm, setDistanceKm] = useState<number>(3);
+  const [distanceText, setDistanceText] = useState<string>('3.00');
   const [opponentMode, setOpponentMode] = useState<OpponentMode>('ghost');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const devToolsEnabled =
+    __DEV__ || process.env.EXPO_PUBLIC_DEV_TOOLS === '1';
+
   const distanceLabel = useMemo(
-    () => formatDistanceLabel(selectedDistance),
-    [selectedDistance]
+    () => formatKmLabel(distanceKm),
+    [distanceKm]
   );
+
+  const updateDistance = (value: number) => {
+    const next = normalizeKm(value);
+    setDistanceKm(next);
+    setDistanceText(next.toFixed(2));
+  };
 
   const handleCreate = async () => {
     setError(null);
@@ -57,12 +73,13 @@ export default function MatchSetupScreen() {
 
     const status = opponentMode === 'real' ? 'waiting' : 'in_progress';
     const startedAt = opponentMode === 'real' ? null : new Date().toISOString();
+    const targetMeters = Math.round(distanceKm * 1000);
 
     const { data, error: insertError } = await supabase
       .from('matches')
       .insert({
         creator_id: userId,
-        target_distance_meters: selectedDistance,
+        target_distance_meters: targetMeters,
         status,
         opponent_id: null,
         started_at: startedAt,
@@ -97,22 +114,52 @@ export default function MatchSetupScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Distance</Text>
           <View style={styles.optionRow}>
-            {DISTANCE_OPTIONS.map((option) => {
-              const active = option === selectedDistance;
+            {QUICK_DISTANCE_KM.map((option) => {
+              const active = option === distanceKm;
               return (
                 <Pressable
                   key={option}
-                  onPress={() => setSelectedDistance(option)}
+                  onPress={() => updateDistance(option)}
                   style={[styles.optionButton, active && styles.optionActive]}
                 >
                   <Text style={[styles.optionText, active && styles.optionTextActive]}>
-                    {formatDistanceLabel(option)}
+                    {option} KM
                   </Text>
                 </Pressable>
               );
             })}
           </View>
+
+          <View style={styles.stepRow}>
+            <Pressable
+              onPress={() => updateDistance(distanceKm - STEP_KM)}
+              style={styles.stepButton}
+            >
+              <Text style={styles.stepText}>-</Text>
+            </Pressable>
+            <TextInput
+              value={distanceText}
+              onChangeText={(text) => {
+                const next = text.replace(',', '.');
+                setDistanceText(next);
+                const parsed = Number.parseFloat(next);
+                if (!Number.isNaN(parsed)) {
+                  setDistanceKm(normalizeKm(parsed));
+                }
+              }}
+              onBlur={() => updateDistance(distanceKm)}
+              keyboardType="decimal-pad"
+              style={styles.distanceInput}
+            />
+            <Pressable
+              onPress={() => updateDistance(distanceKm + STEP_KM)}
+              style={styles.stepButton}
+            >
+              <Text style={styles.stepText}>+</Text>
+            </Pressable>
+          </View>
           <Text style={styles.helperText}>Selected: {distanceLabel}</Text>
+          <Text style={styles.helperSubText}>0.01 KM ´ÜÀ§·Î Á¶Àý °¡´É</Text>
         </View>
 
         <View style={styles.section}>
@@ -158,6 +205,23 @@ export default function MatchSetupScreen() {
           </Text>
         </View>
 
+        {devToolsEnabled ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Dev Quick Start</Text>
+            <View style={styles.optionRow}>
+              {[0.2, 0.5, 0.75].map((value) => (
+                <Pressable
+                  key={value}
+                  onPress={() => updateDistance(value)}
+                  style={styles.devButton}
+                >
+                  <Text style={styles.devButtonText}>{value} KM</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <PrimaryButton
@@ -184,25 +248,32 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingTop: 16,
-    gap: 20,
+    gap: 18,
   },
   header: {
-    gap: 6,
+    backgroundColor: COLORS.panel,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderHeavy,
+    borderRadius: SIZES.radiusMedium,
+    paddingVertical: 10,
+    alignItems: 'center',
+    gap: 4,
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '900',
-    letterSpacing: 1.5,
+    letterSpacing: 2,
     color: COLORS.text,
     textTransform: 'uppercase',
+    fontFamily: 'SpaceMono',
   },
   subTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '900',
     letterSpacing: 1,
-    color: COLORS.accent,
+    color: COLORS.highlight,
     textTransform: 'uppercase',
   },
   section: {
@@ -213,9 +284,9 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
-    letterSpacing: 0.8,
+    letterSpacing: 1,
     color: COLORS.text,
     textTransform: 'uppercase',
     marginBottom: 12,
@@ -227,10 +298,10 @@ const styles = StyleSheet.create({
   },
   optionButton: {
     flexGrow: 1,
-    minWidth: 96,
+    minWidth: 90,
     paddingVertical: 10,
     paddingHorizontal: 14,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.input,
     borderColor: COLORS.border,
     borderWidth: SIZES.borderLight,
     borderRadius: SIZES.radiusSmall,
@@ -243,15 +314,68 @@ const styles = StyleSheet.create({
   optionText: {
     color: COLORS.text,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   optionTextActive: {
     color: COLORS.border,
+  },
+  stepRow: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  stepButton: {
+    width: 44,
+    height: 36,
+    borderRadius: SIZES.radiusSmall,
+    backgroundColor: COLORS.panelDark,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepText: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  distanceInput: {
+    flex: 1,
+    height: 40,
+    backgroundColor: COLORS.input,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderLight,
+    borderRadius: SIZES.radiusSmall,
+    color: COLORS.text,
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
   helperText: {
     color: COLORS.muted,
     fontSize: 12,
     marginTop: 10,
+  },
+  helperSubText: {
+    color: COLORS.muted,
+    fontSize: 11,
+    marginTop: 4,
+  },
+  devButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: SIZES.radiusSmall,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderLight,
+    backgroundColor: COLORS.panelLight,
+  },
+  devButtonText: {
+    color: COLORS.text,
+    fontSize: 11,
+    fontWeight: '800',
   },
   errorText: {
     color: COLORS.accentOrange,
@@ -267,5 +391,3 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
-
-

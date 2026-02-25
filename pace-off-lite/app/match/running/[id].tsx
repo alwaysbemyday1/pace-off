@@ -1,9 +1,10 @@
-ï»¿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
   Text,
   View,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -14,7 +15,7 @@ import { ProgressBar } from '@/components/common/ProgressBar';
 import { haversineDistanceMeters } from '@/utils/distance';
 import { useLocationTracking } from '@/hooks/useLocationTracking';
 import type { Tables } from '@/types/database.types';
-import { COLORS } from '@/styles/theme';
+import { COLORS, SIZES } from '@/styles/theme';
 import { supabase } from '@/utils/supabase';
 
 type MatchRow = Tables<'matches'>;
@@ -33,6 +34,8 @@ const formatTime = (seconds: number) => {
     .toString()
     .padStart(2, '0')}`;
 };
+
+const formatKm = (meters: number) => `${(meters / 1000).toFixed(2)} km`;
 
 export default function RunningScreen() {
   const { id } = useLocalSearchParams<Params>();
@@ -54,6 +57,9 @@ export default function RunningScreen() {
   const hasNavigatedRef = useRef(false);
   const ensuredStartRef = useRef(false);
 
+  const devToolsEnabled =
+    __DEV__ || process.env.EXPO_PUBLIC_DEV_TOOLS === '1';
+
   const opponentId = useMemo(() => {
     if (!match || !userId) return null;
     if (match.creator_id === userId) return match.opponent_id;
@@ -68,12 +74,12 @@ export default function RunningScreen() {
 
   const leadText = useMemo(() => {
     if (myDistance === 0 && rivalDistance === 0) {
-      return 'ëŒ€ê²°ì„ ì‹œìž‘í•˜ì„¸ìš”!';
+      return '´ë°áÀ» ½ÃÀÛÇÏ¼¼¿ä!';
     }
     if (myDistance >= rivalDistance) {
-      return 'ë‚´ê°€ ì„ ë‘ìž…ë‹ˆë‹¤!';
+      return '³»°¡ ¼±µÎÀÔ´Ï´Ù!';
     }
-    return 'ìƒëŒ€ê°€ ì•žì„œê³  ìžˆìŠµë‹ˆë‹¤!';
+    return '»ó´ë°¡ ¾Õ¼­°í ÀÖ½À´Ï´Ù!';
   }, [myDistance, rivalDistance]);
 
   useEffect(() => {
@@ -266,30 +272,34 @@ export default function RunningScreen() {
     };
   }, [id, userId]);
 
-  const finalizeAndNavigate = useCallback(async () => {
-    if (hasNavigatedRef.current) return;
-    hasNavigatedRef.current = true;
+  const finalizeAndNavigate = useCallback(
+    async (overrideDistance?: number) => {
+      if (hasNavigatedRef.current) return;
+      hasNavigatedRef.current = true;
 
-    stopTracking();
+      stopTracking();
 
-    if (id && userId) {
-      await supabase
-        .from('match_progress')
-        .upsert(
-          {
-            match_id: id,
-            user_id: userId,
-            distance_meters: myDistance,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'match_id,user_id' }
-        );
-      lastSentAtRef.current = Date.now();
-      lastSentDistanceRef.current = myDistance;
-    }
+      if (id && userId) {
+        const finalDistance = overrideDistance ?? myDistance;
+        await supabase
+          .from('match_progress')
+          .upsert(
+            {
+              match_id: id,
+              user_id: userId,
+              distance_meters: finalDistance,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'match_id,user_id' }
+          );
+        lastSentAtRef.current = Date.now();
+        lastSentDistanceRef.current = finalDistance;
+      }
 
-    router.replace(`/match/result/${id}`);
-  }, [id, userId, myDistance, router, stopTracking]);
+      router.replace(`/match/result/${id}`);
+    },
+    [id, userId, myDistance, router, stopTracking]
+  );
 
   useEffect(() => {
     if (!id) return;
@@ -301,7 +311,10 @@ export default function RunningScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.container}>
-        <Text style={styles.title}>MATCH RUNNING</Text>
+        <View style={styles.header}>
+          <Text style={styles.title}>PACE MATCH</Text>
+          <Text style={styles.subTitle}>RUNNING</Text>
+        </View>
 
         {loading ? (
           <View style={styles.loadingRow}>
@@ -318,10 +331,10 @@ export default function RunningScreen() {
           </Text>
         </Card>
 
-        <Card title="Distance Left" style={styles.card}>
-          <Text style={styles.distanceText}>{Math.round(distanceLeft)} m</Text>
+        <Card title="Distance" style={styles.card}>
+          <Text style={styles.distanceText}>{formatKm(distanceLeft)}</Text>
           <Text style={styles.distanceSubText}>
-            Target {Math.round(targetDistance)} m
+            Target {formatKm(targetDistance)}
           </Text>
         </Card>
 
@@ -340,6 +353,43 @@ export default function RunningScreen() {
         {locationError ? (
           <Text style={styles.errorText}>{locationError}</Text>
         ) : null}
+
+        {devToolsEnabled ? (
+          <Card title="DEV TOOLS" style={styles.devCard}>
+            <View style={styles.devRow}>
+              {[100, 250, 500].map((meters) => (
+                <Pressable
+                  key={meters}
+                  onPress={() =>
+                    setMyDistance((prev) =>
+                      Math.min(targetDistance, prev + meters)
+                    )
+                  }
+                  style={styles.devButton}
+                >
+                  <Text style={styles.devButtonText}>+{meters}m</Text>
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.devRow}>
+              <Pressable
+                onPress={() => setRivalDistance((prev) => prev + 200)}
+                style={styles.devButtonAlt}
+              >
+                <Text style={styles.devButtonText}>RIVAL +200m</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setMyDistance(targetDistance);
+                  finalizeAndNavigate(targetDistance);
+                }}
+                style={styles.devButtonFinish}
+              >
+                <Text style={styles.devButtonFinishText}>FINISH</Text>
+              </Pressable>
+            </View>
+          </Card>
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -352,15 +402,31 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingTop: 16,
     gap: 16,
   },
+  header: {
+    backgroundColor: COLORS.panel,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderHeavy,
+    borderRadius: SIZES.radiusMedium,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '900',
-    letterSpacing: 1,
+    letterSpacing: 2,
     color: COLORS.text,
+    textTransform: 'uppercase',
+    fontFamily: 'SpaceMono',
+  },
+  subTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.highlight,
+    marginTop: 2,
     textTransform: 'uppercase',
   },
   card: {
@@ -374,7 +440,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
   distanceText: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '900',
     color: COLORS.accentBlue,
     textAlign: 'center',
@@ -408,6 +474,46 @@ const styles = StyleSheet.create({
     color: COLORS.accentOrange,
     fontSize: 12,
   },
+  devCard: {
+    marginTop: 6,
+  },
+  devRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  devButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: SIZES.radiusSmall,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderLight,
+    backgroundColor: COLORS.panelLight,
+  },
+  devButtonAlt: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: SIZES.radiusSmall,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderLight,
+    backgroundColor: COLORS.panelDark,
+  },
+  devButtonFinish: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: SIZES.radiusSmall,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderLight,
+    backgroundColor: COLORS.accent,
+  },
+  devButtonText: {
+    color: COLORS.text,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  devButtonFinishText: {
+    color: COLORS.border,
+    fontSize: 11,
+    fontWeight: '900',
+  },
 });
-
-

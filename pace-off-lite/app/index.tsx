@@ -1,10 +1,12 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   StyleSheet,
   Text,
+  TextInput,
   View,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -20,8 +22,7 @@ type MatchRow = Tables<'matches'>;
 const formatDistance = (meters: number) => {
   if (!Number.isFinite(meters)) return '-- km';
   const km = meters / 1000;
-  if (km >= 1) return `${km.toFixed(km % 1 === 0 ? 0 : 1)} km`;
-  return `${Math.round(meters)} m`;
+  return `${km.toFixed(2)} km`;
 };
 
 export default function HomeScreen() {
@@ -31,6 +32,7 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [joiningId, setJoiningId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const loadMatches = useCallback(
     async (currentUserId: string | null) => {
@@ -111,6 +113,12 @@ export default function HomeScreen() {
     };
   }, [loadMatches, userId]);
 
+  const filteredMatches = useMemo(() => {
+    if (!searchTerm.trim()) return matches;
+    const keyword = searchTerm.trim().toLowerCase();
+    return matches.filter((match) => match.id.toLowerCase().includes(keyword));
+  }, [matches, searchTerm]);
+
   const handleJoin = async (matchId: string) => {
     if (!userId) {
       setError('Please sign in again.');
@@ -144,46 +152,73 @@ export default function HomeScreen() {
     router.push(`/match/running/${matchId}`);
   };
 
-  const statusButtons = useMemo(
-    () => (
-      <View style={styles.statusRow}>
-        <PrimaryButton
-          title="MATCH STATUS"
-          onPress={() => router.push('/matches')}
-          style={styles.secondaryButton}
-          textStyle={styles.secondaryText}
-        />
-        <PrimaryButton
-          title="PROFILE"
-          onPress={() => router.push('/profile')}
-          style={styles.secondaryButton}
-          textStyle={styles.secondaryText}
-        />
-      </View>
-    ),
-    [router]
-  );
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <FlatList
-        data={matches}
+        data={filteredMatches}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={
           <View style={styles.header}>
             <View style={styles.brandBar}>
               <Text style={styles.brandText}>PACE OFF</Text>
+              <Pressable
+                onPress={() => router.push('/profile')}
+                style={styles.avatarButton}
+              >
+                <Text style={styles.avatarText}>ME</Text>
+              </Pressable>
             </View>
+
             <PrimaryButton
-              title="CREATE MATCH"
+              title="NEW MATCH"
               onPress={() => router.push('/match/setup')}
               style={styles.createButton}
             />
-            {statusButtons}
+
+            <View style={styles.statusRow}>
+              <PrimaryButton
+                title="MATCH STATUS"
+                onPress={() => router.push('/matches')}
+                style={styles.secondaryButton}
+                textStyle={styles.secondaryText}
+              />
+              <PrimaryButton
+                title="PROFILE"
+                onPress={() => router.push('/profile')}
+                style={styles.secondaryButtonAlt}
+                textStyle={styles.secondaryText}
+              />
+            </View>
+
+            <Card title="My Stats" style={styles.statsCard}>
+              <View style={styles.statsRow}>
+                <Text style={styles.statsLabel}>LEVEL</Text>
+                <Text style={styles.statsValue}>2</Text>
+                <View style={styles.statsDivider} />
+                <Text style={styles.statsLabel}>TROPHY</Text>
+                <Text style={styles.statsValue}>1</Text>
+                <View style={styles.statsDivider} />
+                <Text style={styles.statsLabel}>WINS</Text>
+                <Text style={styles.statsValue}>0</Text>
+              </View>
+            </Card>
+
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>JOIN MATCH</Text>
             </View>
+
+            <View style={styles.searchBar}>
+              <TextInput
+                placeholder="Search match id"
+                placeholderTextColor={COLORS.muted}
+                value={searchTerm}
+                onChangeText={setSearchTerm}
+                style={styles.searchInput}
+              />
+              <Text style={styles.searchIcon}>?</Text>
+            </View>
+
             {loading ? (
               <View style={styles.loadingRow}>
                 <ActivityIndicator color={COLORS.accent} />
@@ -194,25 +229,28 @@ export default function HomeScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <Card title="Waiting Match" style={styles.card}>
-            <Text style={styles.metaText}>
-              Distance: {formatDistance(item.target_distance_meters)}
-            </Text>
-            <PrimaryButton
-              title={joiningId === item.id ? 'JOINING...' : 'JOIN'}
-              onPress={() => handleJoin(item.id)}
-              disabled={joiningId === item.id}
-              style={styles.joinButton}
-              textStyle={styles.joinText}
-            />
+          <Card title="PACE MATCH" style={styles.card}>
+            <View style={styles.matchRow}>
+              <View style={styles.matchInfo}>
+                <Text style={styles.matchDistance}>
+                  {formatDistance(item.target_distance_meters)}
+                </Text>
+                <Text style={styles.matchMeta}>Host: RUNNER</Text>
+              </View>
+              <PrimaryButton
+                title={joiningId === item.id ? 'JOINING...' : 'JOIN'}
+                onPress={() => handleJoin(item.id)}
+                disabled={joiningId === item.id}
+                style={styles.joinButton}
+                textStyle={styles.joinText}
+              />
+            </View>
           </Card>
         )}
         ListEmptyComponent={
           !loading ? (
             <Card title="No Available Matches" style={styles.card}>
-              <Text style={styles.metaText}>
-                Create a new match to start.
-              </Text>
+              <Text style={styles.metaText}>Create a new match to start.</Text>
             </Card>
           ) : null
         }
@@ -227,12 +265,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   listContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingBottom: 32,
   },
   header: {
-    paddingTop: 10,
-    paddingBottom: 16,
+    paddingTop: 8,
+    paddingBottom: 14,
     gap: 12,
   },
   brandBar: {
@@ -241,7 +279,9 @@ const styles = StyleSheet.create({
     borderWidth: SIZES.borderHeavy,
     borderRadius: SIZES.radiusMedium,
     paddingVertical: 10,
+    paddingHorizontal: 14,
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: COLORS.shadow,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.4,
@@ -257,45 +297,135 @@ const styles = StyleSheet.create({
     textShadowColor: COLORS.border,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 0,
+    fontFamily: 'SpaceMono',
+  },
+  avatarButton: {
+    position: 'absolute',
+    right: 10,
+    top: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: SIZES.borderLight,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.panelDark,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: COLORS.text,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
   createButton: {
     paddingVertical: 18,
   },
   statusRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   secondaryButton: {
     flex: 1,
-    backgroundColor: COLORS.accentBlue,
+    backgroundColor: COLORS.accentGreen,
+  },
+  secondaryButtonAlt: {
+    flex: 1,
+    backgroundColor: COLORS.panelLight,
   },
   secondaryText: {
     color: COLORS.border,
   },
+  statsCard: {
+    marginTop: 4,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  statsLabel: {
+    color: COLORS.muted,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  statsValue: {
+    color: COLORS.text,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  statsDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: COLORS.border,
+  },
   sectionHeader: {
-    marginTop: 6,
+    marginTop: 2,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '900',
     letterSpacing: 1.2,
-    color: COLORS.accent,
+    color: COLORS.highlight,
     textTransform: 'uppercase',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.input,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderHeavy,
+    borderRadius: SIZES.radiusSmall,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: COLORS.text,
+    fontSize: 12,
+  },
+  searchIcon: {
+    color: COLORS.muted,
+    fontSize: 12,
+    fontWeight: '900',
   },
   card: {
     marginBottom: 14,
+  },
+  matchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  matchInfo: {
+    flex: 1,
+  },
+  matchDistance: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  matchMeta: {
+    marginTop: 4,
+    color: COLORS.muted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  joinButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: COLORS.accent,
+  },
+  joinText: {
+    color: COLORS.border,
   },
   metaText: {
     color: COLORS.text,
     fontSize: 13,
     fontWeight: '700',
     marginBottom: 8,
-  },
-  joinButton: {
-    backgroundColor: COLORS.accentGreen,
-  },
-  joinText: {
-    color: COLORS.border,
   },
   loadingRow: {
     flexDirection: 'row',
@@ -311,5 +441,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
-
 

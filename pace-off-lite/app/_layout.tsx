@@ -109,7 +109,6 @@ function RootLayoutNav() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />
-        <Stack.Screen name="match" />
         <Stack.Screen name="matches" />
         <Stack.Screen name="profile" />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
