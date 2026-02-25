@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Card } from '@/components/common/Card';
 import { PrimaryButton } from '@/components/common/PrimaryButton';
 import type { Tables } from '@/types/database.types';
+import { COLORS, SIZES } from '@/styles/theme';
 import { supabase } from '@/utils/supabase';
 
 type MatchRow = Tables<'matches'>;
@@ -19,8 +20,11 @@ type MatchResultRow = Tables<'match_results'>;
 
 type Params = { id?: string };
 
-const formatPace = (distanceMeters: number, totalSeconds: number) => {
+const formatPace = (distanceMeters: number, totalSeconds: number | null) => {
   if (!Number.isFinite(distanceMeters) || distanceMeters <= 0) {
+    return '--:--/km';
+  }
+  if (!totalSeconds || totalSeconds <= 0) {
     return '--:--/km';
   }
   const secondsPerKm = totalSeconds / (distanceMeters / 1000);
@@ -31,6 +35,15 @@ const formatPace = (distanceMeters: number, totalSeconds: number) => {
   const seconds = Math.round(secondsPerKm % 60);
   return `${minutes}:${seconds.toString().padStart(2, '0')}/km`;
 };
+
+const formatDuration = (seconds: number | null) => {
+  if (!seconds || seconds <= 0) return '--:--';
+  const minutes = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${minutes}:${secs.toString().padStart(2, '0')}`;
+};
+
+const formatKm = (meters: number) => `${(meters / 1000).toFixed(2)} km`;
 
 export default function MatchResultScreen() {
   const { id } = useLocalSearchParams<Params>();
@@ -44,10 +57,6 @@ export default function MatchResultScreen() {
 
   const submittedRef = useRef(false);
   const statusUpdatedRef = useRef(false);
-
-  const totalSeconds = useMemo(() => {
-    return match ? match.target_time_minutes * 60 : 0;
-  }, [match]);
 
   const opponentId = useMemo(() => {
     if (!match || !userId) return null;
@@ -69,10 +78,30 @@ export default function MatchResultScreen() {
     return Math.abs(myDistance - rivalDistance);
   }, [resultsReady, myDistance, rivalDistance]);
 
+  const mySeconds = useMemo(() => {
+    if (!match?.started_at || !myResult?.finished_at) return null;
+    const start = Date.parse(match.started_at);
+    const end = Date.parse(myResult.finished_at);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+    return Math.max(1, Math.round((end - start) / 1000));
+  }, [match?.started_at, myResult?.finished_at]);
+
+  const rivalSeconds = useMemo(() => {
+    if (!match?.started_at || !rivalResult?.finished_at) return null;
+    const start = Date.parse(match.started_at);
+    const end = Date.parse(rivalResult.finished_at);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+    return Math.max(1, Math.round((end - start) / 1000));
+  }, [match?.started_at, rivalResult?.finished_at]);
+
   const outcome = useMemo(() => {
     if (!resultsReady) return null;
+    if (!opponentId) return 'VICTORY';
+    if (mySeconds !== null && rivalSeconds !== null) {
+      return mySeconds <= rivalSeconds ? 'VICTORY' : 'DEFEAT';
+    }
     return myDistance >= rivalDistance ? 'VICTORY' : 'DEFEAT';
-  }, [resultsReady, myDistance, rivalDistance]);
+  }, [resultsReady, opponentId, mySeconds, rivalSeconds, myDistance, rivalDistance]);
 
   const fetchOpponentResult = useCallback(async () => {
     if (!id || !opponentId) return;
@@ -251,11 +280,15 @@ export default function MatchResultScreen() {
   }, [id, resultsReady]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerText}>PACE OFF</Text>
+        </View>
+
         {loading ? (
           <View style={styles.loadingRow}>
-            <ActivityIndicator color="#F59E0B" />
+            <ActivityIndicator color={COLORS.accent} />
             <Text style={styles.loadingText}>결과를 불러오는 중...</Text>
           </View>
         ) : null}
@@ -277,7 +310,7 @@ export default function MatchResultScreen() {
 
         {!resultsReady ? (
           <View style={styles.waitingBox}>
-            <ActivityIndicator color="#38BDF8" />
+            <ActivityIndicator color={COLORS.accentBlue} />
             <Text style={styles.waitingText}>
               상대방의 최종 기록을 집계 중입니다...
             </Text>
@@ -285,35 +318,34 @@ export default function MatchResultScreen() {
         ) : null}
 
         <Card title="YOU" style={styles.card}>
+          <Text style={styles.metaText}>Distance: {formatKm(myDistance)}</Text>
+          <Text style={styles.metaText}>Time: {formatDuration(mySeconds)}</Text>
           <Text style={styles.metaText}>
-            Distance: {myDistance.toFixed(0)} m
-          </Text>
-          <Text style={styles.metaText}>
-            Avg Pace: {formatPace(myDistance, totalSeconds)}
+            Avg Pace: {formatPace(myDistance, mySeconds)}
           </Text>
         </Card>
 
-        {resultsReady ? (
+        {resultsReady && opponentId ? (
           <Card title="RIVAL" style={styles.card}>
             <Text style={styles.metaText}>
-              Distance: {rivalDistance.toFixed(0)} m
+              Distance: {formatKm(rivalDistance)}
             </Text>
             <Text style={styles.metaText}>
-              Avg Pace: {formatPace(rivalDistance, totalSeconds)}
+              Time: {formatDuration(rivalSeconds)}
+            </Text>
+            <Text style={styles.metaText}>
+              Avg Pace: {formatPace(rivalDistance, rivalSeconds)}
             </Text>
             {distanceGap !== null ? (
               <Text style={styles.gapText}>
-                Gap: {distanceGap.toFixed(0)} m
+                Gap: {formatKm(distanceGap)}
               </Text>
             ) : null}
           </Card>
         ) : null}
 
         <View style={styles.actions}>
-          <PrimaryButton
-            title="MAIN MENU"
-            onPress={() => router.replace('/(tabs)')}
-          />
+          <PrimaryButton title="MAIN MENU" onPress={() => router.replace('/')} />
           <PrimaryButton
             title="REMATCH"
             onPress={() => router.replace('/match/setup')}
@@ -329,34 +361,50 @@ export default function MatchResultScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B1220',
+    backgroundColor: COLORS.background,
   },
   container: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    gap: 16,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    gap: 14,
+  },
+  header: {
+    backgroundColor: COLORS.panel,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderHeavy,
+    borderRadius: SIZES.radiusMedium,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  headerText: {
+    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    fontFamily: 'SpaceMono',
   },
   outcome: {
-    fontSize: 38,
+    fontSize: 34,
     fontWeight: '900',
     letterSpacing: 2,
     textAlign: 'center',
     textTransform: 'uppercase',
   },
   outcomePending: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '800',
     letterSpacing: 1,
     textAlign: 'center',
-    color: '#94A3B8',
+    color: COLORS.muted,
     textTransform: 'uppercase',
   },
   victory: {
-    color: '#22C55E',
+    color: COLORS.accentGreen,
   },
   defeat: {
-    color: '#F97316',
+    color: COLORS.accentOrange,
   },
   waitingBox: {
     flexDirection: 'row',
@@ -366,21 +414,21 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   waitingText: {
-    color: '#94A3B8',
+    color: COLORS.muted,
     fontSize: 12,
     fontWeight: '700',
   },
   card: {
-    marginTop: 4,
+    marginTop: 2,
   },
   metaText: {
-    color: '#E2E8F0',
+    color: COLORS.text,
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 6,
   },
   gapText: {
-    color: '#38BDF8',
+    color: COLORS.accentBlue,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -390,10 +438,10 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   rematchButton: {
-    backgroundColor: '#38BDF8',
+    backgroundColor: COLORS.accentBlue,
   },
   rematchText: {
-    color: '#0B1220',
+    color: COLORS.border,
   },
   loadingRow: {
     flexDirection: 'row',
@@ -401,11 +449,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   loadingText: {
-    color: '#94A3B8',
+    color: COLORS.muted,
     fontSize: 12,
   },
   errorText: {
-    color: '#F97316',
+    color: COLORS.accentOrange,
     fontSize: 12,
   },
 });

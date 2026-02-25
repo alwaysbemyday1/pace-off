@@ -2,14 +2,15 @@
 import {
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PrimaryButton } from '@/components/common/PrimaryButton';
+import { COLORS, SIZES } from '@/styles/theme';
 import { supabase } from '@/utils/supabase';
 
 export default function LoginScreen() {
@@ -63,13 +64,13 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.container}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>PACE-OFF LITE</Text>
+          <Text style={styles.title}>PACE OFF</Text>
           <Text style={styles.subtitle}>Sign in to start your match.</Text>
         </View>
 
@@ -80,7 +81,7 @@ export default function LoginScreen() {
             autoCorrect={false}
             keyboardType="email-address"
             placeholder="you@example.com"
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={COLORS.muted}
             value={email}
             onChangeText={setEmail}
             style={styles.input}
@@ -90,7 +91,7 @@ export default function LoginScreen() {
           <TextInput
             secureTextEntry
             placeholder="********"
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={COLORS.muted}
             value={password}
             onChangeText={setPassword}
             style={styles.input}
@@ -121,7 +122,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B1220',
+    backgroundColor: COLORS.background,
   },
   container: {
     flex: 1,
@@ -133,31 +134,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '900',
-    letterSpacing: 1,
-    color: '#F8FAFC',
+    letterSpacing: 2,
+    color: COLORS.text,
     textTransform: 'uppercase',
+    textShadowColor: COLORS.border,
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 0,
   },
   subtitle: {
     marginTop: 8,
     fontSize: 14,
-    color: '#94A3B8',
+    color: COLORS.muted,
   },
   form: {
-    backgroundColor: '#1E293B',
-    borderColor: '#0F172A',
-    borderWidth: 3,
-    borderRadius: 18,
+    backgroundColor: COLORS.panel,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderHeavy,
+    borderRadius: SIZES.radiusLarge,
     padding: 18,
-    shadowColor: '#0F172A',
+    shadowColor: COLORS.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 0,
     elevation: 4,
   },
   label: {
-    color: '#F8FAFC',
+    color: COLORS.text,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1,
@@ -165,17 +169,17 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   input: {
-    backgroundColor: '#0B1220',
-    borderColor: '#0F172A',
-    borderWidth: 2,
-    borderRadius: 12,
+    backgroundColor: COLORS.background,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderLight,
+    borderRadius: SIZES.radiusSmall,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: '#F8FAFC',
+    color: COLORS.text,
     marginBottom: 14,
   },
   status: {
-    color: '#FBBF24',
+    color: COLORS.accent,
     fontSize: 12,
     marginBottom: 12,
   },
@@ -183,9 +187,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   secondaryButton: {
-    backgroundColor: '#38BDF8',
+    backgroundColor: COLORS.accentBlue,
   },
   secondaryText: {
-    color: '#0B1220',
+    color: COLORS.border,
   },
 });
+
+

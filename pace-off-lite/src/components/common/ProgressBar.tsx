@@ -1,14 +1,7 @@
 ﻿import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 import { StyleSheet, Text, View } from 'react-native';
 
-const COLORS = {
-  base: '#0F172A',
-  track: '#0B1220',
-  you: '#38BDF8',
-  rival: '#F97316',
-  text: '#F8FAFC',
-  muted: '#94A3B8',
-};
+import { COLORS, SIZES } from '@/styles/theme';
 
 type ProgressBarProps = {
   youValue: number;
@@ -48,7 +41,9 @@ export const ProgressBar = ({
       <View style={styles.row}>
         <Text style={[styles.label, labelStyle]}>{youLabel}</Text>
         {showValues ? (
-          <Text style={styles.value}>{`${Math.round(youValue)} / ${Math.round(maxValue)}`}</Text>
+          <Text style={styles.value}>{`${Math.round(youValue)} / ${Math.round(
+            maxValue
+          )}`}</Text>
         ) : null}
       </View>
       <View style={[styles.track, { height }]}>
@@ -60,11 +55,15 @@ export const ProgressBar = ({
       <View style={styles.row}>
         <Text style={[styles.label, labelStyle]}>{rivalLabel}</Text>
         {showValues ? (
-          <Text style={styles.value}>{`${Math.round(rivalValue)} / ${Math.round(maxValue)}`}</Text>
+          <Text style={styles.value}>{`${Math.round(rivalValue)} / ${Math.round(
+            maxValue
+          )}`}</Text>
         ) : null}
       </View>
       <View style={[styles.track, { height }]}>
-        <View style={[styles.fill, styles.rivalFill, { width: `${rivalRatio * 100}%` }]} />
+        <View
+          style={[styles.fill, styles.rivalFill, { width: `${rivalRatio * 100}%` }]}
+        />
       </View>
     </View>
   );
@@ -86,7 +85,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 1,
     textTransform: 'uppercase',
-    textShadowColor: COLORS.base,
+    textShadowColor: COLORS.border,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 0,
   },
@@ -96,9 +95,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   track: {
-    backgroundColor: COLORS.track,
-    borderColor: COLORS.base,
-    borderWidth: 3,
+    backgroundColor: COLORS.border,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderHeavy,
     borderRadius: 999,
     overflow: 'hidden',
   },
@@ -106,12 +105,14 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   youFill: {
-    backgroundColor: COLORS.you,
+    backgroundColor: COLORS.accentBlue,
   },
   rivalFill: {
-    backgroundColor: COLORS.rival,
+    backgroundColor: COLORS.accentOrange,
   },
   spacer: {
     height: 12,
   },
 });
+
+

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
+  Pressable,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { LocationObject } from 'expo-location';
 
@@ -14,6 +15,7 @@ import { ProgressBar } from '@/components/common/ProgressBar';
 import { haversineDistanceMeters } from '@/utils/distance';
 import { useLocationTracking } from '@/hooks/useLocationTracking';
 import type { Tables } from '@/types/database.types';
+import { COLORS, SIZES } from '@/styles/theme';
 import { supabase } from '@/utils/supabase';
 
 type MatchRow = Tables<'matches'>;
@@ -33,6 +35,8 @@ const formatTime = (seconds: number) => {
     .padStart(2, '0')}`;
 };
 
+const formatKm = (meters: number) => `${(meters / 1000).toFixed(2)} km`;
+
 export default function RunningScreen() {
   const { id } = useLocalSearchParams<Params>();
   const router = useRouter();
@@ -41,7 +45,7 @@ export default function RunningScreen() {
   const [userId, setUserId] = useState<string | null>(null);
   const [myDistance, setMyDistance] = useState(0);
   const [rivalDistance, setRivalDistance] = useState(0);
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,15 +57,20 @@ export default function RunningScreen() {
   const hasNavigatedRef = useRef(false);
   const ensuredStartRef = useRef(false);
 
+  const devToolsEnabled =
+    __DEV__ || process.env.EXPO_PUBLIC_DEV_TOOLS === '1';
+
   const opponentId = useMemo(() => {
     if (!match || !userId) return null;
     if (match.creator_id === userId) return match.opponent_id;
     return match.creator_id;
   }, [match, userId]);
 
-  const maxDistance = useMemo(() => {
-    return Math.max(1, myDistance, rivalDistance);
-  }, [myDistance, rivalDistance]);
+  const targetDistance = match?.target_distance_meters ?? 3000;
+
+  const distanceLeft = useMemo(() => {
+    return Math.max(0, targetDistance - myDistance);
+  }, [targetDistance, myDistance]);
 
   const leadText = useMemo(() => {
     if (myDistance === 0 && rivalDistance === 0) {
@@ -160,21 +169,18 @@ export default function RunningScreen() {
       startTimeRef.current = Date.now();
     }
 
-    const totalSeconds = match.target_time_minutes * 60;
-
-    const updateTime = () => {
+    const updateElapsed = () => {
       const elapsed = Math.floor(
         (Date.now() - (startTimeRef.current ?? Date.now())) / 1000
       );
-      const next = Math.max(0, totalSeconds - elapsed);
-      setTimeLeft(next);
+      setElapsedSeconds(elapsed);
     };
 
-    updateTime();
+    updateElapsed();
 
-    const interval = setInterval(updateTime, 1000);
+    const interval = setInterval(updateElapsed, 1000);
     return () => clearInterval(interval);
-  }, [match?.id, match?.target_time_minutes, match?.started_at]);
+  }, [match?.id, match?.started_at]);
 
   useEffect(() => {
     if (!location) return;
@@ -266,63 +272,77 @@ export default function RunningScreen() {
     };
   }, [id, userId]);
 
-  const finalizeAndNavigate = useCallback(async () => {
-    if (hasNavigatedRef.current) return;
-    hasNavigatedRef.current = true;
+  const finalizeAndNavigate = useCallback(
+    async (overrideDistance?: number) => {
+      if (hasNavigatedRef.current) return;
+      hasNavigatedRef.current = true;
 
-    stopTracking();
+      stopTracking();
 
-    if (id && userId) {
-      await supabase
-        .from('match_progress')
-        .upsert(
-          {
-            match_id: id,
-            user_id: userId,
-            distance_meters: myDistance,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'match_id,user_id' }
-        );
-      lastSentAtRef.current = Date.now();
-      lastSentDistanceRef.current = myDistance;
-    }
+      if (id && userId) {
+        const finalDistance = overrideDistance ?? myDistance;
+        await supabase
+          .from('match_progress')
+          .upsert(
+            {
+              match_id: id,
+              user_id: userId,
+              distance_meters: finalDistance,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'match_id,user_id' }
+          );
+        lastSentAtRef.current = Date.now();
+        lastSentDistanceRef.current = finalDistance;
+      }
 
-    router.replace(`/match/result/${id}`);
-  }, [id, userId, myDistance, router, stopTracking]);
+      router.replace(`/match/result/${id}`);
+    },
+    [id, userId, myDistance, router, stopTracking]
+  );
 
   useEffect(() => {
-    if (!id || timeLeft === null) return;
-    if (timeLeft > 0) return;
+    if (!id) return;
+    if (myDistance < targetDistance) return;
 
     finalizeAndNavigate();
-  }, [id, timeLeft, finalizeAndNavigate]);
+  }, [id, myDistance, targetDistance, finalizeAndNavigate]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.container}>
-        <Text style={styles.title}>MATCH RUNNING</Text>
+        <View style={styles.header}>
+          <Text style={styles.title}>PACE MATCH</Text>
+          <Text style={styles.subTitle}>RUNNING</Text>
+        </View>
 
         {loading ? (
           <View style={styles.loadingRow}>
-            <ActivityIndicator color="#F59E0B" />
+            <ActivityIndicator color={COLORS.accent} />
             <Text style={styles.loadingText}>Loading match...</Text>
           </View>
         ) : null}
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        <Card title="Time Left" style={styles.card}>
+        <Card title="Elapsed Time" style={styles.card}>
           <Text style={styles.timerText}>
-            {timeLeft === null ? '--:--' : formatTime(timeLeft)}
+            {elapsedSeconds === null ? '--:--' : formatTime(elapsedSeconds)}
           </Text>
         </Card>
 
         <Card title="Distance" style={styles.card}>
+          <Text style={styles.distanceText}>{formatKm(distanceLeft)}</Text>
+          <Text style={styles.distanceSubText}>
+            Target {formatKm(targetDistance)}
+          </Text>
+        </Card>
+
+        <Card title="Progress" style={styles.card}>
           <ProgressBar
             youValue={myDistance}
             rivalValue={rivalDistance}
-            maxValue={maxDistance}
+            maxValue={targetDistance}
             youLabel="YOU"
             rivalLabel="RIVAL"
           />
@@ -333,6 +353,43 @@ export default function RunningScreen() {
         {locationError ? (
           <Text style={styles.errorText}>{locationError}</Text>
         ) : null}
+
+        {devToolsEnabled ? (
+          <Card title="DEV TOOLS" style={styles.devCard}>
+            <View style={styles.devRow}>
+              {[100, 250, 500].map((meters) => (
+                <Pressable
+                  key={meters}
+                  onPress={() =>
+                    setMyDistance((prev) =>
+                      Math.min(targetDistance, prev + meters)
+                    )
+                  }
+                  style={styles.devButton}
+                >
+                  <Text style={styles.devButtonText}>+{meters}m</Text>
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.devRow}>
+              <Pressable
+                onPress={() => setRivalDistance((prev) => prev + 200)}
+                style={styles.devButtonAlt}
+              >
+                <Text style={styles.devButtonText}>RIVAL +200m</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setMyDistance(targetDistance);
+                  finalizeAndNavigate(targetDistance);
+                }}
+                style={styles.devButtonFinish}
+              >
+                <Text style={styles.devButtonFinishText}>FINISH</Text>
+              </Pressable>
+            </View>
+          </Card>
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -341,34 +398,66 @@ export default function RunningScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B1220',
+    backgroundColor: COLORS.background,
   },
   container: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingTop: 16,
     gap: 16,
   },
+  header: {
+    backgroundColor: COLORS.panel,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderHeavy,
+    borderRadius: SIZES.radiusMedium,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '900',
-    letterSpacing: 1,
-    color: '#F8FAFC',
+    letterSpacing: 2,
+    color: COLORS.text,
+    textTransform: 'uppercase',
+    fontFamily: 'SpaceMono',
+  },
+  subTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.highlight,
+    marginTop: 2,
+    textTransform: 'uppercase',
   },
   card: {
-    marginTop: 8,
+    marginTop: 4,
   },
   timerText: {
     fontSize: 32,
     fontWeight: '900',
-    color: '#F59E0B',
+    color: COLORS.accent,
     textAlign: 'center',
     letterSpacing: 2,
+  },
+  distanceText: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: COLORS.accentBlue,
+    textAlign: 'center',
+    letterSpacing: 1,
+  },
+  distanceSubText: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.muted,
+    textAlign: 'center',
+    textTransform: 'uppercase',
   },
   leadText: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#38BDF8',
+    color: COLORS.accentBlue,
     textAlign: 'center',
     textTransform: 'uppercase',
   },
@@ -378,11 +467,53 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   loadingText: {
-    color: '#94A3B8',
+    color: COLORS.muted,
     fontSize: 12,
   },
   errorText: {
-    color: '#F97316',
+    color: COLORS.accentOrange,
     fontSize: 12,
+  },
+  devCard: {
+    marginTop: 6,
+  },
+  devRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  devButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: SIZES.radiusSmall,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderLight,
+    backgroundColor: COLORS.panelLight,
+  },
+  devButtonAlt: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: SIZES.radiusSmall,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderLight,
+    backgroundColor: COLORS.panelDark,
+  },
+  devButtonFinish: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: SIZES.radiusSmall,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderLight,
+    backgroundColor: COLORS.accent,
+  },
+  devButtonText: {
+    color: COLORS.text,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  devButtonFinishText: {
+    color: COLORS.border,
+    fontSize: 11,
+    fontWeight: '900',
   },
 });

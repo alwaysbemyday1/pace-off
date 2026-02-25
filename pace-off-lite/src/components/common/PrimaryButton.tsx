@@ -1,14 +1,7 @@
 ﻿import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-const COLORS = {
-  base: '#0F172A',
-  accent: '#F59E0B',
-  accentShadow: '#9A3412',
-  text: '#F8FAFC',
-  disabled: '#94A3B8',
-  disabledBg: '#475569',
-};
+import { COLORS, SIZES } from '@/styles/theme';
 
 type PrimaryButtonProps = {
   title: string;
@@ -52,14 +45,14 @@ export const PrimaryButton = ({
 const styles = StyleSheet.create({
   button: {
     backgroundColor: COLORS.accent,
-    borderColor: COLORS.base,
-    borderWidth: 3,
-    borderRadius: 14,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderHeavy,
+    borderRadius: SIZES.radiusMedium,
     paddingVertical: 16,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: COLORS.accentShadow,
+    shadowColor: COLORS.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 0,
@@ -71,8 +64,8 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   buttonDisabled: {
-    backgroundColor: COLORS.disabledBg,
-    borderColor: COLORS.base,
+    backgroundColor: '#3C4A63',
+    borderColor: COLORS.border,
   },
   inner: {
     width: '100%',
@@ -84,11 +77,13 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
-    textShadowColor: COLORS.base,
+    textShadowColor: COLORS.border,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 0,
   },
   textDisabled: {
-    color: COLORS.disabled,
+    color: COLORS.muted,
   },
 });
+
+

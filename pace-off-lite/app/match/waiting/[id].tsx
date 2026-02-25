@@ -1,14 +1,22 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Card } from '@/components/common/Card';
 import type { Tables } from '@/types/database.types';
+import { COLORS, SIZES } from '@/styles/theme';
 import { supabase } from '@/utils/supabase';
 
 type MatchRow = Tables<'matches'>;
 
 type Params = { id?: string };
+
+const formatDistance = (meters: number) => {
+  if (!Number.isFinite(meters)) return '-- km';
+  const km = meters / 1000;
+  return `${km.toFixed(2)} km`;
+};
 
 export default function WaitingRoomScreen() {
   const { id } = useLocalSearchParams<Params>();
@@ -68,14 +76,22 @@ export default function WaitingRoomScreen() {
     };
   }, [id, router]);
 
+  const statusLabel = useMemo(() => {
+    if (!match) return '';
+    return match.opponent_id ? 'Opponent joined' : 'Waiting for opponent';
+  }, [match]);
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.container}>
-        <Text style={styles.title}>WAITING ROOM</Text>
+        <View style={styles.header}>
+          <Text style={styles.title}>WAITING ROOM</Text>
+          <Text style={styles.subTitle}>MATCH STATUS</Text>
+        </View>
 
         {loading ? (
           <View style={styles.loadingRow}>
-            <ActivityIndicator color="#F59E0B" />
+            <ActivityIndicator color={COLORS.accent} />
             <Text style={styles.loadingText}>Waiting for opponent...</Text>
           </View>
         ) : null}
@@ -86,12 +102,10 @@ export default function WaitingRoomScreen() {
           <Card title="Match Info" style={styles.card}>
             <Text style={styles.metaText}>Match ID: {match.id}</Text>
             <Text style={styles.metaText}>
-              Target: {match.target_time_minutes} min
+              Distance: {formatDistance(match.target_distance_meters)}
             </Text>
             <Text style={styles.metaText}>Status: {match.status}</Text>
-            <Text style={styles.metaText}>
-              Opponent: {match.opponent_id ? 'Joined' : 'Waiting'}
-            </Text>
+            <Text style={styles.metaText}>{statusLabel}</Text>
           </Card>
         ) : null}
       </View>
@@ -102,25 +116,42 @@ export default function WaitingRoomScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0B1220',
+    backgroundColor: COLORS.background,
   },
   container: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingTop: 16,
     gap: 16,
   },
+  header: {
+    backgroundColor: COLORS.panel,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderHeavy,
+    borderRadius: SIZES.radiusMedium,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
   title: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '900',
-    letterSpacing: 1,
-    color: '#F8FAFC',
+    letterSpacing: 2,
+    color: COLORS.text,
+    textTransform: 'uppercase',
+    fontFamily: 'SpaceMono',
+  },
+  subTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.highlight,
+    marginTop: 2,
+    textTransform: 'uppercase',
   },
   card: {
     marginTop: 8,
   },
   metaText: {
-    color: '#E2E8F0',
+    color: COLORS.text,
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 6,
@@ -131,11 +162,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   loadingText: {
-    color: '#94A3B8',
+    color: COLORS.muted,
     fontSize: 12,
   },
   errorText: {
-    color: '#F97316',
+    color: COLORS.accentOrange,
     fontSize: 12,
   },
 });
