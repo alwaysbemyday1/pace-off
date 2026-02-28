@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -64,7 +64,11 @@ export default function WaitingRoomScreen() {
           setMatch(next);
 
           if (next.status === 'in_progress' && next.opponent_id) {
-            router.replace(`/match/running/${id}`);
+            if (next.match_type === 'routine') {
+              router.replace(`/match/routine/${id}`);
+            } else {
+              router.replace(`/match/running/${id}`);
+            }
           }
         }
       )
@@ -81,12 +85,14 @@ export default function WaitingRoomScreen() {
     return match.opponent_id ? 'Opponent joined' : 'Waiting for opponent';
   }, [match]);
 
+  const typeLabel = match?.match_type === 'routine' ? 'ROUTINE MATCH' : 'PACE MATCH';
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>WAITING ROOM</Text>
-          <Text style={styles.subTitle}>MATCH STATUS</Text>
+          <Text style={styles.subTitle}>{typeLabel}</Text>
         </View>
 
         {loading ? (
@@ -101,9 +107,13 @@ export default function WaitingRoomScreen() {
         {match ? (
           <Card title="Match Info" style={styles.card}>
             <Text style={styles.metaText}>Match ID: {match.id}</Text>
-            <Text style={styles.metaText}>
-              Distance: {formatDistance(match.target_distance_meters)}
-            </Text>
+            {match.match_type === 'routine' ? (
+              <Text style={styles.metaText}>Goal: {match.target_value ?? 5} days</Text>
+            ) : (
+              <Text style={styles.metaText}>
+                Distance: {formatDistance(match.target_distance_meters)}
+              </Text>
+            )}
             <Text style={styles.metaText}>Status: {match.status}</Text>
             <Text style={styles.metaText}>{statusLabel}</Text>
           </Card>
@@ -170,3 +180,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
+

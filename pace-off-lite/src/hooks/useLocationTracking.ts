@@ -6,7 +6,12 @@ import { haversineDistanceMeters } from '@/utils/distance';
 const MAX_ACCURACY_METERS = 20;
 const MAX_SPEED_METERS_PER_SECOND = 10;
 
-export const useLocationTracking = () => {
+type TrackingOptions = {
+  autoStart?: boolean;
+};
+
+export const useLocationTracking = (options: TrackingOptions = {}) => {
+  const { autoStart = true } = options;
   const [foregroundStatus, setForegroundStatus] = useState<Location.PermissionStatus | null>(null);
   const [backgroundStatus, setBackgroundStatus] = useState<Location.PermissionStatus | null>(null);
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
@@ -68,6 +73,8 @@ export const useLocationTracking = () => {
   useEffect(() => {
     let active = true;
 
+    if (!autoStart) return;
+
     (async () => {
       if (!active) return;
       await startTracking();
@@ -77,7 +84,7 @@ export const useLocationTracking = () => {
       active = false;
       stopTracking();
     };
-  }, [startTracking, stopTracking]);
+  }, [autoStart, startTracking, stopTracking]);
 
   return {
     location,
@@ -88,3 +95,4 @@ export const useLocationTracking = () => {
     stopTracking,
   };
 };
+

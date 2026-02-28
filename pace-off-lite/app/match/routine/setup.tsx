@@ -4,7 +4,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,41 +13,33 @@ import { PrimaryButton } from '@/components/common/PrimaryButton';
 import { COLORS, SIZES } from '@/styles/theme';
 import { supabase } from '@/utils/supabase';
 
-const QUICK_DISTANCE_KM = [1, 3, 5] as const;
-const MIN_KM = 0.1;
-const MAX_KM = 50;
-const STEP_KM = 0.01;
+const QUICK_GOALS = [3, 5, 7] as const;
+const MIN_GOAL = 1;
+const MAX_GOAL = 7;
 
 type OpponentMode = 'ghost' | 'real';
 
-const normalizeKm = (value: number) => {
-  const clamped = Math.min(MAX_KM, Math.max(MIN_KM, value));
-  return Math.round(clamped * 100) / 100;
+const clampGoal = (value: number) =>
+  Math.min(MAX_GOAL, Math.max(MIN_GOAL, value));
+
+const getEndOfWeek = () => {
+  const now = new Date();
+  const day = now.getDay(); // 0 (Sun) - 6 (Sat)
+  const diff = (7 - day) % 7;
+  const end = new Date(now);
+  end.setDate(now.getDate() + diff);
+  end.setHours(23, 59, 59, 999);
+  return end.toISOString();
 };
 
-const formatKmLabel = (value: number) => `${value.toFixed(2)} KM`;
-
-export default function MatchSetupScreen() {
+export default function RoutineSetupScreen() {
   const router = useRouter();
-  const [distanceKm, setDistanceKm] = useState<number>(3);
-  const [distanceText, setDistanceText] = useState<string>('3.00');
-  const [opponentMode, setOpponentMode] = useState<OpponentMode>('ghost');
+  const [goalDays, setGoalDays] = useState<number>(5);
+  const [opponentMode, setOpponentMode] = useState<OpponentMode>('real');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const devToolsEnabled =
-    __DEV__ || process.env.EXPO_PUBLIC_DEV_TOOLS === '1';
-
-  const distanceLabel = useMemo(
-    () => formatKmLabel(distanceKm),
-    [distanceKm]
-  );
-
-  const updateDistance = (value: number) => {
-    const next = normalizeKm(value);
-    setDistanceKm(next);
-    setDistanceText(next.toFixed(2));
-  };
+  const goalLabel = useMemo(() => `${goalDays} DAYS`, [goalDays]);
 
   const handleCreate = async () => {
     setError(null);
@@ -73,25 +64,26 @@ export default function MatchSetupScreen() {
 
     const status = opponentMode === 'real' ? 'waiting' : 'in_progress';
     const startedAt = opponentMode === 'real' ? null : new Date().toISOString();
-    const targetMeters = Math.round(distanceKm * 1000);
+    const expiresAt = getEndOfWeek();
 
     const { data, error: insertError } = await supabase
       .from('matches')
       .insert({
         creator_id: userId,
-        match_type: 'pace',
-        target_distance_meters: targetMeters,
-        target_value: targetMeters,
+        match_type: 'routine',
+        target_value: goalDays,
+        target_distance_meters: 0,
         status,
         opponent_id: null,
         started_at: startedAt,
         completed_at: null,
+        expires_at: expiresAt,
       })
       .select()
       .single();
 
     if (insertError || !data) {
-      setError(insertError?.message ?? 'Failed to create match.');
+      setError(insertError?.message ?? 'Failed to create routine match.');
       setLoading(false);
       return;
     }
@@ -101,7 +93,7 @@ export default function MatchSetupScreen() {
     if (opponentMode === 'real') {
       router.replace(`/match/waiting/${data.id}`);
     } else {
-      router.replace(`/match/running/${data.id}`);
+      router.replace(`/match/routine/${data.id}`);
     }
   };
 
@@ -110,22 +102,22 @@ export default function MatchSetupScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>MATCH SETUP</Text>
-          <Text style={styles.subTitle}>SPEED MATCH</Text>
+          <Text style={styles.subTitle}>ROUTINE MATCH</Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Distance</Text>
+          <Text style={styles.sectionTitle}>Weekly Goal</Text>
           <View style={styles.optionRow}>
-            {QUICK_DISTANCE_KM.map((option) => {
-              const active = option === distanceKm;
+            {QUICK_GOALS.map((option) => {
+              const active = option === goalDays;
               return (
                 <Pressable
                   key={option}
-                  onPress={() => updateDistance(option)}
+                  onPress={() => setGoalDays(option)}
                   style={[styles.optionButton, active && styles.optionActive]}
                 >
                   <Text style={[styles.optionText, active && styles.optionTextActive]}>
-                    {option} KM
+                    {option} DAYS
                   </Text>
                 </Pressable>
               );
@@ -134,34 +126,20 @@ export default function MatchSetupScreen() {
 
           <View style={styles.stepRow}>
             <Pressable
-              onPress={() => updateDistance(distanceKm - STEP_KM)}
+              onPress={() => setGoalDays((prev) => clampGoal(prev - 1))}
               style={styles.stepButton}
             >
               <Text style={styles.stepText}>-</Text>
             </Pressable>
-            <TextInput
-              value={distanceText}
-              onChangeText={(text) => {
-                const next = text.replace(',', '.');
-                setDistanceText(next);
-                const parsed = Number.parseFloat(next);
-                if (!Number.isNaN(parsed)) {
-                  setDistanceKm(normalizeKm(parsed));
-                }
-              }}
-              onBlur={() => updateDistance(distanceKm)}
-              keyboardType="decimal-pad"
-              style={styles.distanceInput}
-            />
+            <Text style={styles.goalText}>{goalLabel}</Text>
             <Pressable
-              onPress={() => updateDistance(distanceKm + STEP_KM)}
+              onPress={() => setGoalDays((prev) => clampGoal(prev + 1))}
               style={styles.stepButton}
             >
               <Text style={styles.stepText}>+</Text>
             </Pressable>
           </View>
-          <Text style={styles.helperText}>Selected: {distanceLabel}</Text>
-          <Text style={styles.helperSubText}>0.01 KM 단위로 조절 가능</Text>
+          <Text style={styles.helperText}>7???숈븞 紐⑺몴 ?ъ꽦</Text>
         </View>
 
         <View style={styles.section}>
@@ -200,34 +178,12 @@ export default function MatchSetupScreen() {
               </Text>
             </Pressable>
           </View>
-          <Text style={styles.helperText}>
-            {opponentMode === 'real'
-              ? 'Waiting room will open after creation.'
-              : 'Start immediately against AI.'}
-          </Text>
         </View>
-
-        {devToolsEnabled ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Dev Quick Start</Text>
-            <View style={styles.optionRow}>
-              {[0.2, 0.5, 0.75].map((value) => (
-                <Pressable
-                  key={value}
-                  onPress={() => updateDistance(value)}
-                  style={styles.devButton}
-                >
-                  <Text style={styles.devButtonText}>{value} KM</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        ) : null}
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <PrimaryButton
-          title={loading ? 'Creating...' : 'Create Match'}
+          title={loading ? 'Creating...' : 'Create Routine'}
           onPress={handleCreate}
           disabled={loading}
         />
@@ -343,41 +299,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
   },
-  distanceInput: {
+  goalText: {
     flex: 1,
-    height: 40,
-    backgroundColor: COLORS.input,
-    borderColor: COLORS.border,
-    borderWidth: SIZES.borderLight,
-    borderRadius: SIZES.radiusSmall,
-    color: COLORS.text,
     textAlign: 'center',
-    fontSize: 14,
-    fontWeight: '800',
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '900',
     letterSpacing: 1,
   },
   helperText: {
     color: COLORS.muted,
     fontSize: 12,
     marginTop: 10,
-  },
-  helperSubText: {
-    color: COLORS.muted,
-    fontSize: 11,
-    marginTop: 4,
-  },
-  devButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: SIZES.radiusSmall,
-    borderColor: COLORS.border,
-    borderWidth: SIZES.borderLight,
-    backgroundColor: COLORS.panelLight,
-  },
-  devButtonText: {
-    color: COLORS.text,
-    fontSize: 11,
-    fontWeight: '800',
   },
   errorText: {
     color: COLORS.accentOrange,

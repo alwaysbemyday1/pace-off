@@ -55,6 +55,7 @@ export type Database = {
           finished_at: string
           id: string
           match_id: string
+          progress_value: number | null
           total_distance_meters: number
           user_id: string
         }
@@ -62,6 +63,7 @@ export type Database = {
           finished_at: string
           id?: string
           match_id: string
+          progress_value?: number | null
           total_distance_meters: number
           user_id: string
         }
@@ -69,6 +71,7 @@ export type Database = {
           finished_at?: string
           id?: string
           match_id?: string
+          progress_value?: number | null
           total_distance_meters?: number
           user_id?: string
         }
@@ -94,31 +97,40 @@ export type Database = {
           completed_at: string | null
           created_at: string
           creator_id: string
+          expires_at: string | null
           id: string
+          match_type: string
           opponent_id: string | null
           started_at: string | null
           status: string
           target_distance_meters: number
+          target_value: number | null
         }
         Insert: {
           completed_at?: string | null
           created_at?: string
           creator_id: string
+          expires_at?: string | null
           id?: string
+          match_type?: string
           opponent_id?: string | null
           started_at?: string | null
           status?: string
           target_distance_meters?: number
+          target_value?: number | null
         }
         Update: {
           completed_at?: string | null
           created_at?: string
           creator_id?: string
+          expires_at?: string | null
           id?: string
+          match_type?: string
           opponent_id?: string | null
           started_at?: string | null
           status?: string
           target_distance_meters?: number
+          target_value?: number | null
         }
         Relationships: [
           {
@@ -131,6 +143,48 @@ export type Database = {
           {
             foreignKeyName: "matches_opponent_id_fkey"
             columns: ["opponent_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routine_logs: {
+        Row: {
+          created_at: string
+          distance_meters: number | null
+          id: string
+          log_date: string
+          match_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          distance_meters?: number | null
+          id?: string
+          log_date: string
+          match_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          distance_meters?: number | null
+          id?: string
+          log_date?: string
+          match_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_logs_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_logs_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -293,5 +347,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
 

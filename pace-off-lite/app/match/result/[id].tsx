@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+ï»¿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -191,6 +191,7 @@ export default function MatchResultScreen() {
           .from('match_results')
           .update({
             total_distance_meters: distanceMeters,
+            progress_value: distanceMeters,
             finished_at: new Date().toISOString(),
           })
           .eq('id', existing.id)
@@ -209,6 +210,7 @@ export default function MatchResultScreen() {
             match_id: id,
             user_id: userId,
             total_distance_meters: distanceMeters,
+            progress_value: distanceMeters,
             finished_at: new Date().toISOString(),
           })
           .select()
@@ -289,7 +291,7 @@ export default function MatchResultScreen() {
         {loading ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator color={COLORS.accent} />
-            <Text style={styles.loadingText}>°á°ú¸¦ ºÒ·¯¿À´Â Áß...</Text>
+            <Text style={styles.loadingText}>ê²°ê³¼ë¥¼ ë¶ˆëŸ¬ì˜¤ëŠ” ì¤‘...</Text>
           </View>
         ) : null}
 
@@ -312,7 +314,7 @@ export default function MatchResultScreen() {
           <View style={styles.waitingBox}>
             <ActivityIndicator color={COLORS.accentBlue} />
             <Text style={styles.waitingText}>
-              »ó´ë¹æÀÇ ÃÖÁ¾ ±â·ÏÀ» Áı°è ÁßÀÔ´Ï´Ù...
+              ìƒëŒ€ë°©ì˜ ìµœì¢… ê¸°ë¡ì„ ì§‘ê³„ ì¤‘ì…ë‹ˆë‹¤...
             </Text>
           </View>
         ) : null}
@@ -457,3 +459,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
+
+

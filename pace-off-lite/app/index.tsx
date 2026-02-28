@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -23,6 +23,13 @@ const formatDistance = (meters: number) => {
   if (!Number.isFinite(meters)) return '-- km';
   const km = meters / 1000;
   return `${km.toFixed(2)} km`;
+};
+
+const formatDate = (dateString?: string | null) => {
+  if (!dateString) return '--';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return '--';
+  return `${date.getMonth() + 1}/${date.getDate()}`;
 };
 
 export default function HomeScreen() {
@@ -149,7 +156,12 @@ export default function HomeScreen() {
     }
 
     setJoiningId(null);
-    router.push(`/match/running/${matchId}`);
+
+    if (data.match_type === 'routine') {
+      router.push(`/match/routine/${matchId}`);
+    } else {
+      router.push(`/match/running/${matchId}`);
+    }
   };
 
   return (
@@ -170,11 +182,19 @@ export default function HomeScreen() {
               </Pressable>
             </View>
 
-            <PrimaryButton
-              title="NEW MATCH"
-              onPress={() => router.push('/match/setup')}
-              style={styles.createButton}
-            />
+            <View style={styles.primaryRow}>
+              <PrimaryButton
+                title="PACE MATCH"
+                onPress={() => router.push('/match/setup')}
+                style={styles.primaryButton}
+              />
+              <PrimaryButton
+                title="ROUTINE MATCH"
+                onPress={() => router.push('/match/routine/setup')}
+                style={styles.primaryButtonAlt}
+                textStyle={styles.primaryButtonAltText}
+              />
+            </View>
 
             <View style={styles.statusRow}>
               <PrimaryButton
@@ -216,7 +236,7 @@ export default function HomeScreen() {
                 onChangeText={setSearchTerm}
                 style={styles.searchInput}
               />
-              <Text style={styles.searchIcon}>?</Text>
+              <Text style={styles.searchIcon}>SEARCH</Text>
             </View>
 
             {loading ? (
@@ -228,25 +248,34 @@ export default function HomeScreen() {
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
           </View>
         }
-        renderItem={({ item }) => (
-          <Card title="PACE MATCH" style={styles.card}>
-            <View style={styles.matchRow}>
-              <View style={styles.matchInfo}>
-                <Text style={styles.matchDistance}>
-                  {formatDistance(item.target_distance_meters)}
-                </Text>
-                <Text style={styles.matchMeta}>Host: RUNNER</Text>
+        renderItem={({ item }) => {
+          const isRoutine = item.match_type === 'routine';
+          return (
+            <Card title={isRoutine ? 'ROUTINE MATCH' : 'PACE MATCH'} style={styles.card}>
+              <View style={styles.matchRow}>
+                <View style={styles.matchInfo}>
+                  <Text style={styles.matchDistance}>
+                    {isRoutine
+                      ? `Goal: ${item.target_value ?? 5} days`
+                      : `Distance: ${formatDistance(item.target_distance_meters)}`}
+                  </Text>
+                  <Text style={styles.matchMeta}>
+                    {isRoutine
+                      ? `Ends: ${formatDate(item.expires_at)}`
+                      : 'Host: RUNNER'}
+                  </Text>
+                </View>
+                <PrimaryButton
+                  title={joiningId === item.id ? 'JOINING...' : 'JOIN'}
+                  onPress={() => handleJoin(item.id)}
+                  disabled={joiningId === item.id}
+                  style={styles.joinButton}
+                  textStyle={styles.joinText}
+                />
               </View>
-              <PrimaryButton
-                title={joiningId === item.id ? 'JOINING...' : 'JOIN'}
-                onPress={() => handleJoin(item.id)}
-                disabled={joiningId === item.id}
-                style={styles.joinButton}
-                textStyle={styles.joinText}
-              />
-            </View>
-          </Card>
-        )}
+            </Card>
+          );
+        }}
         ListEmptyComponent={
           !loading ? (
             <Card title="No Available Matches" style={styles.card}>
@@ -318,8 +347,18 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1,
   },
-  createButton: {
+  primaryRow: {
+    gap: 10,
+  },
+  primaryButton: {
     paddingVertical: 18,
+  },
+  primaryButtonAlt: {
+    paddingVertical: 18,
+    backgroundColor: COLORS.panelLight,
+  },
+  primaryButtonAltText: {
+    color: COLORS.text,
   },
   statusRow: {
     flexDirection: 'row',
@@ -387,7 +426,7 @@ const styles = StyleSheet.create({
   },
   searchIcon: {
     color: COLORS.muted,
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '900',
   },
   card: {

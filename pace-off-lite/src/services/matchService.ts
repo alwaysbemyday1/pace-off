@@ -20,6 +20,7 @@ export const insertMatchResult = async ({
     match_id: matchId,
     user_id: userId,
     total_distance_meters: totalDistanceMeters,
+    progress_value: totalDistanceMeters,
     finished_at: finishedAt ?? new Date().toISOString(),
   };
 
@@ -35,3 +36,4 @@ export const insertMatchResult = async ({
 
   return data;
 };
+
