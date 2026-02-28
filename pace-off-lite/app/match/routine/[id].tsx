@@ -1,7 +1,6 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -208,6 +207,12 @@ export default function RoutineMatchScreen() {
   }, [id, match, router]);
 
   useEffect(() => {
+    if (!id) return;
+    if (match?.status !== 'completed') return;
+    router.replace(`/match/routine/result/${id}`);
+  }, [id, match?.status, router]);
+
+  useEffect(() => {
     return () => {
       stopTracking();
     };
@@ -408,9 +413,30 @@ export default function RoutineMatchScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.container}>
-        <View style={styles.header}>
+        <View style={styles.hero}>
+          <View style={styles.heroTop}>
+            <Text style={styles.brandText}>PACE OFF</Text>
+            <StatusBadge label={badgeLabel} tone={statusTone} />
+          </View>
           <Text style={styles.title}>ROUTINE MATCH</Text>
-          <StatusBadge label={badgeLabel} tone={statusTone} />
+          <View style={styles.heroStats}>
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>GOAL</Text>
+              <Text style={styles.statValue}>{goalDays}D</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>YOU</Text>
+              <Text style={styles.statValue}>
+                {myProgress}/{goalDays}
+              </Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statLabel}>{opponentId ? 'RIVAL' : 'GHOST'}</Text>
+              <Text style={styles.statValue}>
+                {opponentId ? `${rivalProgress}/${goalDays}` : '--'}
+              </Text>
+            </View>
+          </View>
         </View>
 
         {loading ? (
@@ -423,12 +449,20 @@ export default function RoutineMatchScreen() {
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <Card title="Time Left" style={styles.card}>
-          <Text style={styles.metaText}>
-            Ends: {expiresAt ? `${expiresAt.getMonth() + 1}/${expiresAt.getDate()}` : '--'}
-          </Text>
-          <Text style={styles.metaText}>
-            {daysLeft !== null ? `${daysLeft} days left` : '...'}
-          </Text>
+          <View style={styles.timeRow}>
+            <View style={styles.timeBox}>
+              <Text style={styles.metaLabel}>ENDS</Text>
+              <Text style={styles.metaValue}>
+                {expiresAt ? `${expiresAt.getMonth() + 1}/${expiresAt.getDate()}` : '--'}
+              </Text>
+            </View>
+            <View style={styles.timeBox}>
+              <Text style={styles.metaLabel}>DAYS LEFT</Text>
+              <Text style={styles.metaValue}>
+                {daysLeft !== null ? `${daysLeft}` : '--'}
+              </Text>
+            </View>
+          </View>
         </Card>
 
         <Card title="Weekly Progress" style={styles.card}>
@@ -439,9 +473,14 @@ export default function RoutineMatchScreen() {
             youLabel="YOU"
             rivalLabel="RIVAL"
           />
-          <Text style={styles.progressText}>
-            Goal {goalDays} days 쨌 You {myProgress}/{goalDays}
-          </Text>
+          <View style={styles.progressRow}>
+            <Text style={styles.progressText}>
+              YOU {myProgress}/{goalDays}
+            </Text>
+            <Text style={styles.progressText}>
+              RIVAL {rivalProgress}/{goalDays}
+            </Text>
+          </View>
         </Card>
 
         <Card title="Weekly Calendar" style={styles.card}>
@@ -449,12 +488,18 @@ export default function RoutineMatchScreen() {
         </Card>
 
         <Card title="Today's Check" style={styles.card}>
-          <Text style={styles.metaText}>
-            Required: {formatKm(MIN_CHECK_DISTANCE_METERS)}
-          </Text>
-          <Text style={styles.metaText}>
-            Today: {formatKm(todayDistance)}
-          </Text>
+          <View style={styles.timeRow}>
+            <View style={styles.timeBox}>
+              <Text style={styles.metaLabel}>REQUIRED</Text>
+              <Text style={styles.metaValue}>
+                {formatKm(MIN_CHECK_DISTANCE_METERS)}
+              </Text>
+            </View>
+            <View style={styles.timeBox}>
+              <Text style={styles.metaLabel}>TODAY</Text>
+              <Text style={styles.metaValue}>{formatKm(todayDistance)}</Text>
+            </View>
+          </View>
 
           {trackingActive ? (
             <View style={styles.actionRow}>
@@ -506,39 +551,107 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     gap: 14,
   },
-  header: {
+  hero: {
     backgroundColor: COLORS.panel,
     borderColor: COLORS.border,
     borderWidth: SIZES.borderHeavy,
     borderRadius: SIZES.radiusMedium,
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 14,
+    gap: 8,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 0,
+    elevation: 5,
+  },
+  heroTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  title: {
+  brandText: {
+    color: COLORS.text,
     fontSize: 18,
     fontWeight: '900',
     letterSpacing: 2,
-    color: COLORS.text,
     textTransform: 'uppercase',
     fontFamily: 'SpaceMono',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: 2,
+    color: COLORS.highlight,
+    textTransform: 'uppercase',
+    fontFamily: 'SpaceMono',
+    textShadowColor: COLORS.border,
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 0,
+  },
+  heroStats: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  statBox: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: SIZES.radiusSmall,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderLight,
+    backgroundColor: COLORS.panelInner,
+    alignItems: 'center',
+  },
+  statLabel: {
+    color: COLORS.muted,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  statValue: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '900',
+    marginTop: 2,
   },
   card: {
     marginTop: 2,
   },
   progressText: {
-    marginTop: 8,
     color: COLORS.muted,
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.6,
   },
-  metaText: {
+  progressRow: {
+    marginTop: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  metaLabel: {
+    color: COLORS.muted,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  metaValue: {
     color: COLORS.text,
     fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 6,
+    fontWeight: '900',
+    marginTop: 4,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  timeBox: {
+    flex: 1,
+    borderRadius: SIZES.radiusSmall,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderLight,
+    backgroundColor: COLORS.panelDark,
+    paddingVertical: 8,
+    alignItems: 'center',
   },
   actionRow: {
     flexDirection: 'row',

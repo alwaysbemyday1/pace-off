@@ -25,7 +25,7 @@ export const RoutineCalendar = ({ days }: RoutineCalendarProps) => {
           ]}
         >
           <Text style={styles.dayLabel}>{day.label}</Text>
-          <Text style={styles.dayStatus}>{day.completed ? '?? : '쨌'}</Text>
+          <Text style={styles.dayStatus}>{day.completed ? 'OK' : '--'}</Text>
         </View>
       ))}
     </View>
@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
   day: {
     flex: 1,
     minHeight: 46,
-    borderRadius: SIZES.radiusSmall,
+    borderRadius: 6,
     borderColor: COLORS.border,
     borderWidth: SIZES.borderLight,
     backgroundColor: COLORS.panelDark,
@@ -55,6 +55,7 @@ const styles = StyleSheet.create({
   dayToday: {
     borderColor: COLORS.highlight,
     borderWidth: SIZES.borderHeavy,
+    backgroundColor: COLORS.panelLight,
   },
   dayLabel: {
     color: COLORS.text,
@@ -62,11 +63,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
+    fontFamily: 'SpaceMono',
   },
   dayStatus: {
     color: COLORS.border,
     fontSize: 14,
     fontWeight: '900',
+    letterSpacing: 1,
   },
 });
 

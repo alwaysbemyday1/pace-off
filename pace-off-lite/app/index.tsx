@@ -1,7 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -126,6 +126,16 @@ export default function HomeScreen() {
     return matches.filter((match) => match.id.toLowerCase().includes(keyword));
   }, [matches, searchTerm]);
 
+  const paceMatches = useMemo(
+    () => filteredMatches.filter((match) => match.match_type !== 'routine'),
+    [filteredMatches]
+  );
+
+  const routineMatches = useMemo(
+    () => filteredMatches.filter((match) => match.match_type === 'routine'),
+    [filteredMatches]
+  );
+
   const handleJoin = async (matchId: string) => {
     if (!userId) {
       setError('Please sign in again.');
@@ -166,124 +176,148 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <FlatList
-        data={filteredMatches}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <View style={styles.brandBar}>
-              <Text style={styles.brandText}>PACE OFF</Text>
-              <Pressable
-                onPress={() => router.push('/profile')}
-                style={styles.avatarButton}
-              >
-                <Text style={styles.avatarText}>ME</Text>
-              </Pressable>
-            </View>
-
-            <View style={styles.primaryRow}>
-              <PrimaryButton
-                title="PACE MATCH"
-                onPress={() => router.push('/match/setup')}
-                style={styles.primaryButton}
-              />
-              <PrimaryButton
-                title="ROUTINE MATCH"
-                onPress={() => router.push('/match/routine/setup')}
-                style={styles.primaryButtonAlt}
-                textStyle={styles.primaryButtonAltText}
-              />
-            </View>
-
-            <View style={styles.statusRow}>
-              <PrimaryButton
-                title="MATCH STATUS"
-                onPress={() => router.push('/matches')}
-                style={styles.secondaryButton}
-                textStyle={styles.secondaryText}
-              />
-              <PrimaryButton
-                title="PROFILE"
-                onPress={() => router.push('/profile')}
-                style={styles.secondaryButtonAlt}
-                textStyle={styles.secondaryText}
-              />
-            </View>
-
-            <Card title="My Stats" style={styles.statsCard}>
-              <View style={styles.statsRow}>
-                <Text style={styles.statsLabel}>LEVEL</Text>
-                <Text style={styles.statsValue}>2</Text>
-                <View style={styles.statsDivider} />
-                <Text style={styles.statsLabel}>TROPHY</Text>
-                <Text style={styles.statsValue}>1</Text>
-                <View style={styles.statsDivider} />
-                <Text style={styles.statsLabel}>WINS</Text>
-                <Text style={styles.statsValue}>0</Text>
-              </View>
-            </Card>
-
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>JOIN MATCH</Text>
-            </View>
-
-            <View style={styles.searchBar}>
-              <TextInput
-                placeholder="Search match id"
-                placeholderTextColor={COLORS.muted}
-                value={searchTerm}
-                onChangeText={setSearchTerm}
-                style={styles.searchInput}
-              />
-              <Text style={styles.searchIcon}>SEARCH</Text>
-            </View>
-
-            {loading ? (
-              <View style={styles.loadingRow}>
-                <ActivityIndicator color={COLORS.accent} />
-                <Text style={styles.loadingText}>Loading matches...</Text>
-              </View>
-            ) : null}
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      <ScrollView contentContainerStyle={styles.listContent}>
+        <View style={styles.header}>
+          <View style={styles.brandBar}>
+            <Text style={styles.brandText}>PACE OFF</Text>
+            <Pressable
+              onPress={() => router.push('/profile')}
+              style={styles.avatarButton}
+            >
+              <Text style={styles.avatarText}>ME</Text>
+            </Pressable>
           </View>
-        }
-        renderItem={({ item }) => {
-          const isRoutine = item.match_type === 'routine';
-          return (
-            <Card title={isRoutine ? 'ROUTINE MATCH' : 'PACE MATCH'} style={styles.card}>
-              <View style={styles.matchRow}>
-                <View style={styles.matchInfo}>
-                  <Text style={styles.matchDistance}>
-                    {isRoutine
-                      ? `Goal: ${item.target_value ?? 5} days`
-                      : `Distance: ${formatDistance(item.target_distance_meters)}`}
+
+          <View style={styles.primaryRow}>
+            <PrimaryButton
+              title="PACE MATCH"
+              onPress={() => router.push('/match/setup')}
+              style={styles.primaryButton}
+            />
+            <PrimaryButton
+              title="ROUTINE MATCH"
+              onPress={() => router.push('/match/routine/setup')}
+              style={styles.primaryButtonAlt}
+              textStyle={styles.primaryButtonAltText}
+            />
+          </View>
+
+          <View style={styles.statusRow}>
+            <PrimaryButton
+              title="MATCH STATUS"
+              onPress={() => router.push('/matches')}
+              style={styles.secondaryButton}
+              textStyle={styles.secondaryText}
+            />
+            <PrimaryButton
+              title="PROFILE"
+              onPress={() => router.push('/profile')}
+              style={styles.secondaryButtonAlt}
+              textStyle={styles.secondaryText}
+            />
+          </View>
+
+          <Card title="My Stats" style={styles.statsCard}>
+            <View style={styles.statsRow}>
+              <Text style={styles.statsLabel}>LEVEL</Text>
+              <Text style={styles.statsValue}>2</Text>
+              <View style={styles.statsDivider} />
+              <Text style={styles.statsLabel}>TROPHY</Text>
+              <Text style={styles.statsValue}>1</Text>
+              <View style={styles.statsDivider} />
+              <Text style={styles.statsLabel}>WINS</Text>
+              <Text style={styles.statsValue}>0</Text>
+            </View>
+          </Card>
+
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>JOIN MATCH</Text>
+          </View>
+
+          <View style={styles.searchBar}>
+            <TextInput
+              placeholder="Search match id"
+              placeholderTextColor={COLORS.muted}
+              value={searchTerm}
+              onChangeText={setSearchTerm}
+              style={styles.searchInput}
+            />
+            <Text style={styles.searchIcon}>SEARCH</Text>
+          </View>
+
+          {loading ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator color={COLORS.accent} />
+              <Text style={styles.loadingText}>Loading matches...</Text>
+            </View>
+          ) : null}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        </View>
+
+        <View style={styles.sectionBlock}>
+          <Text style={styles.sectionSubtitle}>PACE</Text>
+          {paceMatches.length
+            ? paceMatches.map((item) => (
+                <Card key={item.id} title="PACE MATCH" style={styles.card}>
+                  <View style={styles.matchRow}>
+                    <View style={styles.matchInfo}>
+                      <Text style={styles.matchDistance}>
+                        Distance: {formatDistance(item.target_distance_meters)}
+                      </Text>
+                      <Text style={styles.matchMeta}>Host: RUNNER</Text>
+                    </View>
+                    <PrimaryButton
+                      title={joiningId === item.id ? 'JOINING...' : 'JOIN'}
+                      onPress={() => handleJoin(item.id)}
+                      disabled={joiningId === item.id}
+                      style={styles.joinButton}
+                      textStyle={styles.joinText}
+                    />
+                  </View>
+                </Card>
+              ))
+            : !loading && (
+                <Card title="No Pace Matches" style={styles.card}>
+                  <Text style={styles.metaText}>
+                    Create a new pace match to start.
                   </Text>
-                  <Text style={styles.matchMeta}>
-                    {isRoutine
-                      ? `Ends: ${formatDate(item.expires_at)}`
-                      : 'Host: RUNNER'}
+                </Card>
+              )}
+        </View>
+
+        <View style={styles.sectionBlock}>
+          <Text style={styles.sectionSubtitle}>ROUTINE</Text>
+          {routineMatches.length
+            ? routineMatches.map((item) => (
+                <Card key={item.id} title="ROUTINE MATCH" style={styles.card}>
+                  <View style={styles.matchRow}>
+                    <View style={styles.matchInfo}>
+                      <Text style={styles.matchDistance}>
+                        Goal: {item.target_value ?? 5} days
+                      </Text>
+                      <Text style={styles.matchMeta}>
+                        Ends: {formatDate(item.expires_at)}
+                      </Text>
+                    </View>
+                    <PrimaryButton
+                      title={joiningId === item.id ? 'JOINING...' : 'JOIN'}
+                      onPress={() => handleJoin(item.id)}
+                      disabled={joiningId === item.id}
+                      style={styles.joinButton}
+                      textStyle={styles.joinText}
+                    />
+                  </View>
+                </Card>
+              ))
+            : !loading && (
+                <Card title="No Routine Matches" style={styles.card}>
+                  <Text style={styles.metaText}>
+                    Create a routine match to start.
                   </Text>
-                </View>
-                <PrimaryButton
-                  title={joiningId === item.id ? 'JOINING...' : 'JOIN'}
-                  onPress={() => handleJoin(item.id)}
-                  disabled={joiningId === item.id}
-                  style={styles.joinButton}
-                  textStyle={styles.joinText}
-                />
-              </View>
-            </Card>
-          );
-        }}
-        ListEmptyComponent={
-          !loading ? (
-            <Card title="No Available Matches" style={styles.card}>
-              <Text style={styles.metaText}>Create a new match to start.</Text>
-            </Card>
-          ) : null
-        }
-      />
+                </Card>
+              )}
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -408,6 +442,17 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     color: COLORS.highlight,
     textTransform: 'uppercase',
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1,
+    color: COLORS.text,
+    textTransform: 'uppercase',
+  },
+  sectionBlock: {
+    marginTop: 4,
+    gap: 10,
   },
   searchBar: {
     flexDirection: 'row',
