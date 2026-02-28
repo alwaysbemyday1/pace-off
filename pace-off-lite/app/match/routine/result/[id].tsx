@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -10,42 +10,32 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { Card } from '@/components/common/Card';
 import { PrimaryButton } from '@/components/common/PrimaryButton';
+import { StatusBadge } from '@/components/common/StatusBadge';
 import type { Tables } from '@/types/database.types';
 import { COLORS, SIZES } from '@/styles/theme';
 import { supabase } from '@/utils/supabase';
 
 type MatchRow = Tables<'matches'>;
-
 type MatchResultRow = Tables<'match_results'>;
 
 type Params = { id?: string };
 
-const formatPace = (distanceMeters: number, totalSeconds: number | null) => {
-  if (!Number.isFinite(distanceMeters) || distanceMeters <= 0) {
-    return '--:--/km';
-  }
-  if (!totalSeconds || totalSeconds <= 0) {
-    return '--:--/km';
-  }
-  const secondsPerKm = totalSeconds / (distanceMeters / 1000);
-  if (!Number.isFinite(secondsPerKm) || secondsPerKm <= 0) {
-    return '--:--/km';
-  }
-  const minutes = Math.floor(secondsPerKm / 60);
-  const seconds = Math.round(secondsPerKm % 60);
-  return `${minutes}:${seconds.toString().padStart(2, '0')}/km`;
-};
-
-const formatDuration = (seconds: number | null) => {
-  if (!seconds || seconds <= 0) return '--:--';
-  const minutes = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${minutes}:${secs.toString().padStart(2, '0')}`;
-};
-
 const formatKm = (meters: number) => `${(meters / 1000).toFixed(2)} km`;
 
-export default function MatchResultScreen() {
+const formatAvgPerDay = (meters: number, days: number | null) => {
+  if (!days || days <= 0) return '-- km/day';
+  const km = meters / 1000;
+  return `${(km / days).toFixed(2)} km/day`;
+};
+
+const formatDate = (dateString?: string | null) => {
+  if (!dateString) return '--';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return '--';
+  return `${date.getMonth() + 1}/${date.getDate()}`;
+};
+
+export default function RoutineResultScreen() {
   const { id } = useLocalSearchParams<Params>();
   const router = useRouter();
   const [match, setMatch] = useState<MatchRow | null>(null);
@@ -55,53 +45,33 @@ export default function MatchResultScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const submittedRef = useRef(false);
-  const statusUpdatedRef = useRef(false);
-
   const opponentId = useMemo(() => {
     if (!match || !userId) return null;
     if (match.creator_id === userId) return match.opponent_id;
     return match.creator_id;
   }, [match, userId]);
 
-  const myResultReady = !!myResult;
-  const resultsReady = useMemo(() => {
-    if (!myResultReady) return false;
-    if (!opponentId) return true;
-    return !!rivalResult;
-  }, [myResultReady, opponentId, rivalResult]);
-
+  const goalDays = match?.target_value ?? 5;
+  const myDays = myResult?.progress_value ?? 0;
+  const rivalDays = rivalResult?.progress_value ?? 0;
   const myDistance = myResult?.total_distance_meters ?? 0;
   const rivalDistance = rivalResult?.total_distance_meters ?? 0;
-  const distanceGap = useMemo(() => {
-    if (!resultsReady) return null;
-    return Math.abs(myDistance - rivalDistance);
-  }, [resultsReady, myDistance, rivalDistance]);
 
-  const mySeconds = useMemo(() => {
-    if (!match?.started_at || !myResult?.finished_at) return null;
-    const start = Date.parse(match.started_at);
-    const end = Date.parse(myResult.finished_at);
-    if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
-    return Math.max(1, Math.round((end - start) / 1000));
-  }, [match?.started_at, myResult?.finished_at]);
-
-  const rivalSeconds = useMemo(() => {
-    if (!match?.started_at || !rivalResult?.finished_at) return null;
-    const start = Date.parse(match.started_at);
-    const end = Date.parse(rivalResult.finished_at);
-    if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
-    return Math.max(1, Math.round((end - start) / 1000));
-  }, [match?.started_at, rivalResult?.finished_at]);
+  const resultsReady = useMemo(() => {
+    if (!myResult) return false;
+    if (!opponentId) return true;
+    return !!rivalResult;
+  }, [myResult, opponentId, rivalResult]);
 
   const outcome = useMemo(() => {
     if (!resultsReady) return null;
-    if (!opponentId) return 'VICTORY';
-    if (mySeconds !== null && rivalSeconds !== null) {
-      return mySeconds <= rivalSeconds ? 'VICTORY' : 'DEFEAT';
+    if (!opponentId) return 'COMPLETED';
+    if (myDays !== rivalDays) return myDays > rivalDays ? 'VICTORY' : 'DEFEAT';
+    if (myDistance !== rivalDistance) {
+      return myDistance > rivalDistance ? 'VICTORY' : 'DEFEAT';
     }
-    return myDistance >= rivalDistance ? 'VICTORY' : 'DEFEAT';
-  }, [resultsReady, opponentId, mySeconds, rivalSeconds, myDistance, rivalDistance]);
+    return 'DRAW';
+  }, [resultsReady, opponentId, myDays, rivalDays, myDistance, rivalDistance]);
 
   const fetchOpponentResult = useCallback(async () => {
     if (!id || !opponentId) return;
@@ -113,9 +83,7 @@ export default function MatchResultScreen() {
       .eq('user_id', opponentId)
       .maybeSingle();
 
-    if (data) {
-      setRivalResult(data);
-    }
+    if (data) setRivalResult(data);
   }, [id, opponentId]);
 
   useEffect(() => {
@@ -165,68 +133,20 @@ export default function MatchResultScreen() {
   }, [id]);
 
   useEffect(() => {
-    if (!id || !userId || submittedRef.current) return;
+    if (!id || !userId) return;
 
-    const submitResult = async () => {
-      setError(null);
-
-      const { data: progressData } = await supabase
-        .from('match_progress')
-        .select('distance_meters')
-        .eq('match_id', id)
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      const distanceMeters = progressData?.distance_meters ?? 0;
-
-      const { data: existing } = await supabase
+    const loadMyResult = async () => {
+      const { data } = await supabase
         .from('match_results')
         .select('*')
         .eq('match_id', id)
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (existing) {
-        const { data, error: updateError } = await supabase
-          .from('match_results')
-          .update({
-            total_distance_meters: distanceMeters,
-            progress_value: distanceMeters,
-            finished_at: new Date().toISOString(),
-          })
-          .eq('id', existing.id)
-          .select()
-          .single();
-
-        if (updateError) {
-          setError(updateError.message);
-        } else {
-          setMyResult(data ?? existing);
-        }
-      } else {
-        const { data, error: insertError } = await supabase
-          .from('match_results')
-          .insert({
-            match_id: id,
-            user_id: userId,
-            total_distance_meters: distanceMeters,
-            progress_value: distanceMeters,
-            finished_at: new Date().toISOString(),
-          })
-          .select()
-          .single();
-
-        if (insertError) {
-          setError(insertError.message);
-        } else {
-          setMyResult(data ?? null);
-        }
-      }
-
-      submittedRef.current = true;
+      if (data) setMyResult(data);
     };
 
-    submitResult();
+    loadMyResult();
   }, [id, userId]);
 
   useEffect(() => {
@@ -237,7 +157,7 @@ export default function MatchResultScreen() {
     if (!id) return;
 
     const channel = supabase
-      .channel(`match-results-${id}`)
+      .channel(`routine-result-${id}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'match_results', filter: `match_id=eq.${id}` },
@@ -270,9 +190,6 @@ export default function MatchResultScreen() {
 
   useEffect(() => {
     if (!id || !resultsReady) return;
-    if (statusUpdatedRef.current) return;
-
-    statusUpdatedRef.current = true;
 
     supabase
       .from('matches')
@@ -285,13 +202,17 @@ export default function MatchResultScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.headerText}>PACE OFF</Text>
+          <Text style={styles.brandText}>PACE OFF</Text>
+          <StatusBadge
+            label={match?.status === 'completed' ? 'COMPLETED' : 'RESULT'}
+            tone={match?.status === 'completed' ? 'success' : 'neutral'}
+          />
         </View>
 
         {loading ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator color={COLORS.accent} />
-            <Text style={styles.loadingText}>결과를 불러오는 중...</Text>
+            <Text style={styles.loadingText}>Loading result...</Text>
           </View>
         ) : null}
 
@@ -301,7 +222,10 @@ export default function MatchResultScreen() {
           <Text
             style={[
               styles.outcome,
-              outcome === 'VICTORY' ? styles.victory : styles.defeat,
+              outcome === 'VICTORY' && styles.victory,
+              outcome === 'DEFEAT' && styles.defeat,
+              outcome === 'DRAW' && styles.draw,
+              outcome === 'COMPLETED' && styles.completed,
             ]}
           >
             {outcome}
@@ -314,35 +238,45 @@ export default function MatchResultScreen() {
           <View style={styles.waitingBox}>
             <ActivityIndicator color={COLORS.accentBlue} />
             <Text style={styles.waitingText}>
-              상대방의 최종 기록을 집계 중입니다...
+              Waiting for rival result...
             </Text>
           </View>
         ) : null}
 
+        <Card title="WEEKLY SUMMARY" style={styles.card}>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryBox}>
+              <Text style={styles.summaryLabel}>GOAL</Text>
+              <Text style={styles.summaryValue}>{goalDays} DAYS</Text>
+            </View>
+            <View style={styles.summaryBox}>
+              <Text style={styles.summaryLabel}>ENDS</Text>
+              <Text style={styles.summaryValue}>
+                {formatDate(match?.expires_at)}
+              </Text>
+            </View>
+          </View>
+        </Card>
+
         <Card title="YOU" style={styles.card}>
-          <Text style={styles.metaText}>Distance: {formatKm(myDistance)}</Text>
-          <Text style={styles.metaText}>Time: {formatDuration(mySeconds)}</Text>
+          <Text style={styles.metaText}>Days: {myDays}</Text>
           <Text style={styles.metaText}>
-            Avg Pace: {formatPace(myDistance, mySeconds)}
+            Distance: {formatKm(myDistance)}
+          </Text>
+          <Text style={styles.metaText}>
+            Avg/Day: {formatAvgPerDay(myDistance, myDays)}
           </Text>
         </Card>
 
-        {resultsReady && opponentId ? (
+        {opponentId ? (
           <Card title="RIVAL" style={styles.card}>
+            <Text style={styles.metaText}>Days: {rivalDays}</Text>
             <Text style={styles.metaText}>
               Distance: {formatKm(rivalDistance)}
             </Text>
             <Text style={styles.metaText}>
-              Time: {formatDuration(rivalSeconds)}
+              Avg/Day: {formatAvgPerDay(rivalDistance, rivalDays)}
             </Text>
-            <Text style={styles.metaText}>
-              Avg Pace: {formatPace(rivalDistance, rivalSeconds)}
-            </Text>
-            {distanceGap !== null ? (
-              <Text style={styles.gapText}>
-                Gap: {formatKm(distanceGap)}
-              </Text>
-            ) : null}
           </Card>
         ) : null}
 
@@ -350,7 +284,7 @@ export default function MatchResultScreen() {
           <PrimaryButton title="MAIN MENU" onPress={() => router.replace('/')} />
           <PrimaryButton
             title="REMATCH"
-            onPress={() => router.replace('/match/setup')}
+            onPress={() => router.replace('/match/routine/setup')}
             style={styles.rematchButton}
             textStyle={styles.rematchText}
           />
@@ -377,25 +311,33 @@ const styles = StyleSheet.create({
     borderWidth: SIZES.borderHeavy,
     borderRadius: SIZES.radiusMedium,
     paddingVertical: 10,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 0,
+    elevation: 5,
   },
-  headerText: {
+  brandText: {
     color: COLORS.text,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
     letterSpacing: 2,
     textTransform: 'uppercase',
     fontFamily: 'SpaceMono',
   },
   outcome: {
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: '900',
     letterSpacing: 2,
     textAlign: 'center',
     textTransform: 'uppercase',
   },
   outcomePending: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '800',
     letterSpacing: 1,
     textAlign: 'center',
@@ -407,6 +349,12 @@ const styles = StyleSheet.create({
   },
   defeat: {
     color: COLORS.accentOrange,
+  },
+  draw: {
+    color: COLORS.accentBlue,
+  },
+  completed: {
+    color: COLORS.highlight,
   },
   waitingBox: {
     flexDirection: 'row',
@@ -423,16 +371,36 @@ const styles = StyleSheet.create({
   card: {
     marginTop: 2,
   },
+  summaryRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  summaryBox: {
+    flex: 1,
+    borderRadius: SIZES.radiusSmall,
+    borderColor: COLORS.border,
+    borderWidth: SIZES.borderLight,
+    backgroundColor: COLORS.panelDark,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  summaryLabel: {
+    color: COLORS.muted,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  summaryValue: {
+    color: COLORS.text,
+    fontSize: 12,
+    fontWeight: '900',
+    marginTop: 4,
+  },
   metaText: {
     color: COLORS.text,
     fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  gapText: {
-    color: COLORS.accentBlue,
-    fontSize: 13,
     fontWeight: '700',
+    marginBottom: 6,
   },
   actions: {
     marginTop: 'auto',
@@ -459,5 +427,3 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
-
-

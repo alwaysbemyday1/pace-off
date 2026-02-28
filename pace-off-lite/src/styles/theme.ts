@@ -1,4 +1,4 @@
-export const COLORS = {
+﻿export const COLORS = {
   background: '#0A1B33',
   panel: '#1F3D73',
   panelInner: '#294A86',
@@ -23,3 +23,4 @@ export const SIZES = {
   radiusMedium: 14,
   radiusSmall: 10,
 };
+
